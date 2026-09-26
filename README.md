@@ -42,7 +42,7 @@ Then open http://localhost:4173. It serves folders and 404s the same way GitHub 
 
 ## Support form
 
-`customer-support/index.html` posts to [Web3Forms](https://web3forms.com), which emails each message to the address the access key was created with. Replies go straight to the customer, because Reply-To is set to their address. To connect the form, replace `YOUR_WEB3FORMS_ACCESS_KEY` in that file with your key. The key is meant to be public.
+`customer-support/index.html` posts to [Web3Forms](https://web3forms.com), which emails each message to the address the access key was created with. Replies go straight to the customer, because Reply-To is set to their address. To send messages to a different address, create a new key at web3forms.com and replace the `access_key` value in that file. The key is meant to be public.
 
 ## Add a product
 
