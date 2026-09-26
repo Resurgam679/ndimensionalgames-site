@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Customer Support · N Dimensional Games</title>
+<meta name="description" content="Contact N Dimensional Games: questions, bug reports and licensing for NDVDB and our other products.">
+<link rel="canonical" href="https://ndimensionalgames.com/customer-support/">
+<link rel="icon" href="../assets/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="../assets/favicon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="N Dimensional Games">
+<meta property="og:title" content="Customer Support · N Dimensional Games">
+<meta property="og:description" content="Questions, bug reports and licensing for NDVDB and our other products.">
+<meta property="og:url" content="https://ndimensionalgames.com/customer-support/">
+<meta property="og:image" content="https://ndimensionalgames.com/assets/og-home.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../assets/site.css">
+<script>try { var t = localStorage.getItem('ndvdb-docs-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../"><img class="mark" src="../assets/ndg-mark.png" width="33" height="32" alt=""><span class="txt">N Dimensional Games</span></a>
+    <span class="spacer"></span>
+    <nav class="nav" aria-label="Main">
+      <a href="../ndvdb/">NDVDB</a>
+      <a href="./" aria-current="page">Support</a>
+    </nav>
+    <button class="iconbtn" id="themeBtn" type="button" title="Toggle light / dark" aria-label="Toggle light or dark theme">◐</button>
+  </div>
+</header>
+
+<main>
+  <div class="wrap narrow">
+    <div class="page-head">
+      <div class="eyebrow">Support</div>
+      <h1>Customer support</h1>
+      <p class="lede">Questions, bug reports or licensing: send a message and it goes straight to our inbox. We'll reply to the email address you enter.</p>
+    </div>
+
+    <div class="callout note"><span aria-hidden="true">ⓘ</span><p>Using NDVDB? The <a href="../ndvdb/#troubleshooting">Troubleshooting</a> and <a href="../ndvdb/#faq">FAQ &amp; Limits</a> pages answer the most common questions.</p></div>
+
+    <div class="callout warn" id="formNotice" hidden><span aria-hidden="true">⚠</span><p>The support form isn't connected yet. Please check back soon.</p></div>
+
+    <!--
+      Messages are delivered by Web3Forms (https://web3forms.com) to the email address the
+      access key was created with. To connect the form, replace YOUR_WEB3FORMS_ACCESS_KEY
+      below with your key. The key is designed to be public, so it is safe to commit.
+    -->
+    <form class="form" id="supportForm" action="https://api.web3forms.com/submit" method="POST">
+      <input type="hidden" name="access_key" value="YOUR_WEB3FORMS_ACCESS_KEY">
+      <input type="hidden" name="subject" value="New support request from ndimensionalgames.com">
+      <input type="hidden" name="from_name" value="ndimensionalgames.com support form">
+      <input type="checkbox" name="botcheck" class="hidden" style="display: none;" tabindex="-1" autocomplete="off">
+
+      <div class="row">
+        <label class="field"><span>Name</span><input name="name" required autocomplete="name"></label>
+        <label class="field"><span>Email</span><input type="email" name="email" required autocomplete="email"></label>
+      </div>
+      <div class="row">
+        <label class="field"><span>Product</span>
+          <select name="Product"><option>NDVDB</option><option>Other</option></select>
+        </label>
+        <label class="field"><span>Topic</span>
+          <select name="Topic">
+            <option>Question</option>
+            <option>Bug report</option>
+            <option>Feature request</option>
+            <option>Licensing or purchase</option>
+            <option>Other</option>
+          </select>
+        </label>
+      </div>
+      <div class="row">
+        <label class="field"><span>Unity version<span class="opt">optional</span></span><input name="Unity version" placeholder="e.g. 6000.0.40f1"></label>
+        <label class="field"><span>Product version<span class="opt">optional</span></span><input name="Product version" placeholder="e.g. 1.0"></label>
+        <label class="field"><span>Invoice number<span class="opt">optional</span></span><input name="Invoice number" placeholder="From your receipt"></label>
+      </div>
+      <label class="field"><span>Message</span>
+        <textarea name="message" required placeholder="What happened, what you expected, and the steps to reproduce it. For rendering issues, include your OS, GPU and graphics API."></textarea>
+      </label>
+      <div class="actions">
+        <button class="btn primary" type="submit">Send message</button>
+        <span class="status" id="formStatus" role="status" aria-live="polite"></span>
+      </div>
+      <p class="muted small">Your message is delivered to our inbox by Web3Forms. We use your email address only to reply to you.</p>
+    </form>
+
+    <div class="sent" id="sentPanel" tabindex="-1" hidden>
+      <div class="tick" aria-hidden="true">✓</div>
+      <h2>Message sent</h2>
+      <p class="muted">Thanks for getting in touch. We'll reply to the email address you entered.</p>
+      <button class="btn" type="button" id="sendAnother">Send another message</button>
+    </div>
+  </div>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <a class="footer-brand" href="../"><img class="lockup" src="../assets/ndg-lockup.png" width="328" height="144" loading="lazy" alt="N Dimensional Games L.L.C."></a>
+    <div class="footer-meta">
+      <nav aria-label="Footer"><a href="../">Home</a><a href="../ndvdb/">NDVDB docs</a></nav>
+      <span>© N Dimensional Games LLC</span>
+    </div>
+  </div>
+</footer>
+
+<script src="../assets/site.js"></script>
+<script src="../assets/support.js"></script>
+</body>
+</html>

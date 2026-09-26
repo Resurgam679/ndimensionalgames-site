@@ -1,0 +1,1360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NDVDB - Cinematic OpenVDB Importer &amp; Real-Time Renderer</title>
+<meta name="description" content="NDVDB - Cinematic OpenVDB Importer &amp; Real-Time Renderer for Unity URP. Import, playback, compositing, lighting, water integration, Timeline and Layout mode.">
+<style>
+/* ───────────────────────── tokens ───────────────────────── */
+:root {
+  --bg: #0f1114; --bg-2: #15181d; --bg-3: #1c2027; --line: #2a2f38;
+  --fg: #e6e8ec; --fg-2: #aab1bd; --fg-3: #7b8494;
+  --accent: #ff8c1a; --accent-2: #ffb15c; --accent-dim: rgba(255,140,26,.14);
+  --ok: #4fd18b; --warn: #f5c451; --bad: #ff6b6b; --info: #6db3ff;
+  --radius: 10px; --sidebar: 268px; --toc: 220px;
+  --mono: ui-monospace, "Cascadia Code", Consolas, "SF Mono", Menlo, monospace;
+  --sans: -apple-system, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+  color-scheme: dark;
+}
+[data-theme="light"] {
+  --bg: #f7f7f5; --bg-2: #ffffff; --bg-3: #eeeeeb; --line: #dcdcd6;
+  --fg: #1a1c20; --fg-2: #4b515b; --fg-3: #7b8290;
+  --accent: #d96d00; --accent-2: #b85a00; --accent-dim: rgba(217,109,0,.12);
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.6 var(--sans); }
+a { color: var(--accent-2); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code, kbd, pre { font-family: var(--mono); font-size: .92em; }
+code { background: var(--bg-3); border: 1px solid var(--line); border-radius: 5px; padding: .08em .4em; }
+pre { background: var(--bg-3); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; overflow-x: auto; }
+pre code { background: none; border: 0; padding: 0; }
+kbd { background: var(--bg-3); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: .05em .45em; }
+h1, h2, h3, h4 { line-height: 1.25; margin: 0; letter-spacing: -.01em; }
+h1 { font-size: 2rem; font-weight: 700; }
+h2 { font-size: 1.35rem; font-weight: 650; margin-top: 2.4rem; padding-top: 1.2rem; border-top: 1px solid var(--line); }
+h2:first-of-type { border-top: 0; padding-top: 0; margin-top: 1.6rem; }
+h3 { font-size: 1.05rem; font-weight: 650; margin-top: 1.6rem; color: var(--fg); }
+p { margin: .8rem 0; }
+ul, ol { padding-left: 1.3rem; }
+li { margin: .3rem 0; }
+hr { border: 0; border-top: 1px solid var(--line); margin: 2rem 0; }
+.muted { color: var(--fg-2); }
+.small { font-size: .88rem; }
+
+/* ───────────────────────── layout ───────────────────────── */
+.topbar { position: sticky; top: 0; z-index: 30; height: 56px; display: flex; align-items: center; gap: 14px;
+  padding: 0 18px; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line); }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: .02em; }
+.brand .logo { width: 28px; height: 28px; border-radius: 7px; background: linear-gradient(135deg, var(--accent), #ff3d00 70%, #ffd166); position: relative; overflow: hidden; }
+.brand .logo::after { content: ""; position: absolute; inset: 6px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, rgba(255,255,255,.9), rgba(255,255,255,0) 60%); }
+.brand .ver { font-weight: 500; color: var(--fg-3); font-size: .85rem; margin-left: 2px; }
+.topbar .spacer { flex: 1; }
+.search { display: flex; align-items: center; gap: 8px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px; padding: 0 10px; height: 34px; width: 300px; max-width: 40vw; }
+.search input { background: none; border: 0; outline: 0; color: var(--fg); width: 100%; font: inherit; }
+.search kbd { font-size: .75rem; color: var(--fg-3); }
+.iconbtn { background: var(--bg-2); border: 1px solid var(--line); color: var(--fg-2); border-radius: 8px; height: 34px; min-width: 34px; padding: 0 10px; cursor: pointer; font: inherit; }
+.iconbtn:hover { color: var(--fg); border-color: var(--fg-3); }
+.menubtn { display: none; }
+
+.shell { display: grid; grid-template-columns: var(--sidebar) minmax(0, 1fr) var(--toc); max-width: 1440px; margin: 0 auto; }
+.sidebar { position: sticky; top: 56px; height: calc(100vh - 56px); overflow-y: auto; padding: 18px 12px 40px 18px; border-right: 1px solid var(--line); }
+.nav-group { margin: 14px 0 6px; padding: 0 8px; font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--fg-3); }
+.nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; color: var(--fg-2); font-weight: 500; }
+.nav a:hover { background: var(--bg-3); color: var(--fg); text-decoration: none; }
+.nav a.active { background: var(--accent-dim); color: var(--accent-2); }
+.nav a .ico { width: 18px; text-align: center; opacity: .85; }
+.nav a.hidden-by-search { display: none; }
+
+main { padding: 28px 44px 80px; min-width: 0; }
+.page { display: none; animation: fade .18s ease-out; }
+.page.active { display: block; }
+@keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.eyebrow { color: var(--accent); font-weight: 700; font-size: .78rem; letter-spacing: .14em; text-transform: uppercase; margin-bottom: 8px; }
+.lede { font-size: 1.1rem; color: var(--fg-2); margin: 10px 0 0; max-width: 62ch; }
+
+.toc { position: sticky; top: 56px; height: calc(100vh - 56px); overflow-y: auto; padding: 26px 18px 40px 6px; font-size: .86rem; }
+.toc .title { font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--fg-3); margin-bottom: 8px; }
+.toc a { display: block; padding: 4px 0 4px 12px; color: var(--fg-3); border-left: 2px solid var(--line); }
+.toc a:hover, .toc a.active { color: var(--fg); border-left-color: var(--accent); text-decoration: none; }
+
+.pager { display: flex; justify-content: space-between; gap: 14px; margin-top: 56px; padding-top: 22px; border-top: 1px solid var(--line); }
+.pager a { flex: 1; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg-2); color: var(--fg); }
+.pager a:hover { border-color: var(--accent); text-decoration: none; }
+.pager a .lbl { display: block; font-size: .74rem; color: var(--fg-3); text-transform: uppercase; letter-spacing: .1em; }
+.pager a.next { text-align: right; }
+
+/* ───────────────────────── components ───────────────────────── */
+.grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); margin: 18px 0; }
+.card { background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; }
+.card h3 { margin-top: 0; font-size: 1rem; }
+.card p { margin: .4rem 0 0; color: var(--fg-2); font-size: .92rem; }
+.card.link { cursor: pointer; transition: border-color .15s, transform .15s; }
+.card.link:hover { border-color: var(--accent); transform: translateY(-1px); }
+.card .ico { font-size: 1.4rem; margin-bottom: 6px; }
+
+.callout { display: flex; gap: 12px; padding: 14px 16px; border-radius: var(--radius); border: 1px solid var(--line); background: var(--bg-2); margin: 16px 0; }
+.callout .ci { font-size: 1.1rem; line-height: 1.4; }
+.callout p { margin: 0; }
+.callout.tip { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }
+.callout.note { border-color: color-mix(in srgb, var(--info) 45%, var(--line)); }
+.callout.warn { border-color: color-mix(in srgb, var(--warn) 55%, var(--line)); }
+.callout.bad { border-color: color-mix(in srgb, var(--bad) 50%, var(--line)); }
+
+table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: .92rem; }
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); margin: 14px 0; }
+.tablewrap table { margin: 0; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { background: var(--bg-3); font-weight: 650; color: var(--fg); font-size: .82rem; letter-spacing: .04em; text-transform: uppercase; }
+tr:last-child td { border-bottom: 0; }
+td code { white-space: nowrap; }
+td .def { color: var(--fg-3); font-size: .82rem; white-space: nowrap; }
+
+.steps { counter-reset: step; list-style: none; padding: 0; margin: 18px 0; }
+.steps li { counter-increment: step; position: relative; padding: 0 0 18px 46px; }
+.steps li::before { content: counter(step); position: absolute; left: 0; top: 0; width: 30px; height: 30px; border-radius: 50%;
+  background: var(--accent-dim); color: var(--accent-2); font-weight: 700; display: grid; place-items: center; font-size: .9rem; }
+.steps li::after { content: ""; position: absolute; left: 14.5px; top: 32px; bottom: 0; width: 1px; background: var(--line); }
+.steps li:last-child::after { display: none; }
+.steps li b { display: block; font-weight: 650; margin-bottom: 2px; }
+.steps li p { margin: .2rem 0 0; color: var(--fg-2); }
+
+.badge { display: inline-block; padding: .1em .55em; border-radius: 999px; font-size: .74rem; font-weight: 700; letter-spacing: .04em; vertical-align: middle; }
+.badge.new { background: var(--accent-dim); color: var(--accent-2); }
+.badge.urp { background: rgba(109,179,255,.14); color: var(--info); }
+.badge.editor { background: rgba(79,209,139,.14); color: var(--ok); }
+.badge.adv { background: rgba(245,196,81,.14); color: var(--warn); }
+
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; font-size: .82rem; color: var(--fg-2); background: var(--bg-2); margin: 0 6px 6px 0; }
+
+/* media (screenshots / video) */
+figure.media { margin: 20px 0; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--bg-2); }
+figure.media img, figure.media video, figure.media iframe { display: block; width: 100%; height: auto; background: #000; }
+figure.media iframe { aspect-ratio: 16/9; border: 0; }
+figure.media figcaption { padding: 10px 14px; font-size: .86rem; color: var(--fg-2); border-top: 1px solid var(--line); }
+figure.media .ph { aspect-ratio: 16/9; display: grid; place-items: center; text-align: center; padding: 20px;
+  background: repeating-linear-gradient(135deg, var(--bg-2) 0 14px, var(--bg-3) 14px 28px); color: var(--fg-3); }
+figure.media .ph .t { font-weight: 650; color: var(--fg-2); }
+figure.media .ph code { display: inline-block; margin-top: 6px; }
+figure.media a.yt { position: relative; display: block; background: #000; }
+figure.media a.yt img { display: block; width: 100%; height: auto; aspect-ratio: 16/9; object-fit: cover; }
+figure.media a.yt .play { position: absolute; inset: 0; display: grid; place-items: center; }
+figure.media a.yt .play span { width: 72px; height: 50px; border-radius: 12px; background: rgba(0,0,0,.72); color: #fff; display: grid; place-items: center; font-size: 22px; padding-left: 4px; box-shadow: 0 2px 12px rgba(0,0,0,.5); }
+figure.media a.yt:hover .play span { background: #e62117; }
+figure.media.wide { margin-left: -8px; margin-right: -8px; }
+.media-row { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.media-row figure.media { margin: 8px 0; }
+
+details { border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg-2); padding: 0 16px; margin: 12px 0; }
+details summary { cursor: pointer; padding: 12px 0; font-weight: 600; list-style: none; }
+details summary::before { content: "▸"; display: inline-block; width: 18px; color: var(--accent); transition: transform .15s; }
+details[open] summary::before { transform: rotate(90deg); }
+details > *:not(summary) { margin-bottom: 12px; }
+
+.hero { position: relative; margin: 6px 0 22px; padding: 34px 36px; border-radius: 16px; overflow: hidden;
+  background: radial-gradient(1200px 400px at 10% -20%, rgba(255,140,26,.22), transparent 60%),
+              radial-gradient(800px 300px at 90% 120%, rgba(255,61,0,.18), transparent 60%), var(--bg-2);
+  border: 1px solid var(--line); }
+.hero h1 { font-size: 2.3rem; }
+.hero .lede { font-size: 1.12rem; }
+.hero .ctas { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 9px; font-weight: 650; border: 1px solid var(--line); background: var(--bg-3); color: var(--fg); }
+.btn:hover { text-decoration: none; border-color: var(--fg-3); }
+.btn.primary { background: var(--accent); color: #1a0e00; border-color: transparent; }
+.btn.primary:hover { background: var(--accent-2); }
+
+.flow { display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
+.flow .node { flex: 1 1 130px; background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; }
+.flow .node b { display: block; font-size: .95rem; }
+.flow .node span { color: var(--fg-3); font-size: .82rem; }
+.flow .arrow { align-self: center; color: var(--fg-3); }
+
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 12px 0; font-size: .93rem; }
+.kv dt { color: var(--fg-3); }
+.kv dd { margin: 0; }
+
+.search-hit mark { background: var(--accent-dim); color: var(--accent-2); border-radius: 3px; padding: 0 2px; }
+#searchResults { display: none; }
+#searchResults.active { display: block; }
+.result { display: block; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg-2); margin: 10px 0; color: var(--fg); }
+.result:hover { border-color: var(--accent); text-decoration: none; }
+.result .where { color: var(--fg-3); font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; }
+.result .snip { color: var(--fg-2); font-size: .9rem; margin-top: 4px; }
+
+footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--line); color: var(--fg-3); font-size: .84rem; }
+
+/* ───────────────────────── responsive ───────────────────────── */
+@media (max-width: 1180px) { .shell { grid-template-columns: var(--sidebar) minmax(0, 1fr); } .toc { display: none; } }
+@media (max-width: 860px) {
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  .sidebar { position: fixed; left: 0; top: 56px; width: min(84vw, 320px); background: var(--bg); transform: translateX(-100%); transition: transform .2s; z-index: 25; box-shadow: 0 0 0 100vmax rgba(0,0,0,0); }
+  .sidebar.open { transform: none; box-shadow: 0 0 0 100vmax rgba(0,0,0,.45); }
+  .menubtn { display: inline-flex; }
+  main { padding: 20px 18px 60px; }
+  .hero { padding: 24px 20px; } .hero h1 { font-size: 1.7rem; }
+  .search { width: 100%; max-width: none; }
+  .pager { flex-direction: column; }
+}
+@media print { .topbar, .sidebar, .toc, .pager { display: none !important; } .page { display: block !important; page-break-after: always; } main { padding: 0; } }
+</style>
+<!-- added by tools/build-docs.mjs -->
+<link rel="icon" href="../assets/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="../assets/favicon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<link rel="canonical" href="https://ndimensionalgames.com/ndvdb/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="N Dimensional Games">
+<meta property="og:title" content="NDVDB - Cinematic OpenVDB Importer &amp; Real-Time Renderer">
+<meta property="og:description" content="NDVDB - Cinematic OpenVDB Importer &amp; Real-Time Renderer for Unity URP. Import, playback, compositing, lighting, water integration, Timeline and Layout mode.">
+<meta property="og:url" content="https://ndimensionalgames.com/ndvdb/">
+<meta property="og:image" content="https://ndimensionalgames.com/assets/og-ndvdb.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+.site-links { display: flex; gap: 2px; }
+.site-links a { color: var(--fg-2); font-weight: 500; padding: 6px 10px; border-radius: 8px; }
+.site-links a:hover { background: var(--bg-3); color: var(--fg); text-decoration: none; }
+@media (max-width: 860px) { .site-links { display: none; } }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <button class="iconbtn menubtn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="#overview"><span class="logo"></span>NDVDB <span class="ver">docs · 1.0</span></a>
+  <span class="spacer"></span>
+  <nav class="site-links" aria-label="Site"><a href="../">Home</a><a href="../customer-support/">Support</a></nav>
+  <label class="search"><span>⌕</span><input id="searchBox" type="search" placeholder="Search the docs…" autocomplete="off"><kbd>/</kbd></label>
+  <button class="iconbtn" id="themeBtn" title="Toggle light / dark">◐</button>
+</header>
+
+<div class="shell">
+<!-- ═══════════════════════════ SIDEBAR ═══════════════════════════ -->
+<nav class="sidebar" id="sidebar">
+  <div class="nav">
+    <div class="nav-group">Start</div>
+    <a href="#overview" data-page="overview"><span class="ico">◈</span>Overview</a>
+    <a href="#getting-started" data-page="getting-started"><span class="ico">⚡</span>Getting Started</a>
+    <a href="#converter" data-page="converter"><span class="ico">⇄</span>Converting VDBs</a>
+
+    <div class="nav-group">Core</div>
+    <a href="#player" data-page="player"><span class="ico">▶</span>NDVDB Player</a>
+    <a href="#material" data-page="material"><span class="ico">◐</span>Volume Material</a>
+    <a href="#compositor" data-page="compositor"><span class="ico">▦</span>Scene Compositor</a>
+    <a href="#lighting" data-page="lighting"><span class="ico">✺</span>Lighting &amp; Fire</a>
+
+    <div class="nav-group">Integration</div>
+    <a href="#water" data-page="water"><span class="ico">≈</span>Water</a>
+    <a href="#timeline" data-page="timeline"><span class="ico">⏱</span>Timeline</a>
+    <a href="#layout-mode" data-page="layout-mode"><span class="ico">▣</span>Layout Mode</a>
+
+    <div class="nav-group">Ship it</div>
+    <a href="#performance" data-page="performance"><span class="ico">⏚</span>Performance Guide</a>
+    <a href="#builds" data-page="builds"><span class="ico">⬇</span>Builds &amp; Deployment</a>
+    <a href="#troubleshooting" data-page="troubleshooting"><span class="ico">✚</span>Troubleshooting</a>
+
+    <div class="nav-group">Reference</div>
+    <a href="#reference" data-page="reference"><span class="ico">≡</span>Settings Reference</a>
+    <a href="#format" data-page="format"><span class="ico">⬢</span>.ndvdb Format</a>
+    <a href="#faq" data-page="faq"><span class="ico">?</span>FAQ &amp; Limits</a>
+  
+    <div class="nav-group">Help</div>
+    <a href="../customer-support/"><span class="ico">✉</span>Customer Support</a>
+    <a href="../"><span class="ico">⌂</span>N Dimensional Games</a>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════ MAIN ═══════════════════════════ -->
+<main id="main">
+
+<section id="searchResults"></section>
+
+<!-- ───────────────────────── OVERVIEW ───────────────────────── -->
+<article class="page" data-page="overview" data-title="Overview">
+  <div class="hero">
+    <div class="eyebrow">NDVDB - Cinematic OpenVDB Importer &amp; Real-Time Renderer · for Unity URP</div>
+    <h1>Real volumetric smoke, fire and explosions. Composited like they belong.</h1>
+    <p class="lede">Import and play your own OpenVDB sequences as real-time lit volumetrics: GPU streaming, joint multi-volume compositing, cross-volume shadows, wave-accurate water integration, and Timeline support.</p>
+    <div class="ctas">
+      <a class="btn primary" href="#getting-started">Get started in 5 minutes →</a>
+      <a class="btn" href="#water">Water integration</a>
+      <a class="btn" href="#reference">Settings reference</a>
+    </div>
+  </div>
+
+  <figure class="media wide" data-youtube="uymRMpNolWY" data-poster="img/37890123c60a.jpg" data-caption="A fireball driven through a smoke plume, a launch through the waterline and a Timeline-sequenced set piece, all composited in one march."></figure>
+
+  <h2 id="ov-what">What NDVDB is</h2>
+  <p>NDVDB is a VDB importer and player. You author simulations in Houdini, EmberGen, Blender or any OpenVDB-compliant tool, convert the <code>.vdb</code> sequence once in the editor into <code>.ndvdb</code>, NDVDB's own GPU-ready streaming format, and play the result back in Unity as a streamed, real-time lit volume. There is no baking to flipbooks, no mesh proxy, and no cloud step.</p>
+  <div class="flow">
+    <div class="node"><b>.vdb sequence</b><span>Houdini · EmberGen · Blender</span></div><div class="arrow">→</div>
+    <div class="node"><b>NDVDB Converter</b><span>quality tier + grid roles</span></div><div class="arrow">→</div>
+    <div class="node"><b>.ndvdb asset</b><span>sparse bricks, temporal deltas, zstd</span></div><div class="arrow">→</div>
+    <div class="node"><b>NDVDB Player</b><span>GPU streaming, RAM budget</span></div><div class="arrow">→</div>
+    <div class="node"><b>Scene Compositor</b><span>joint march, shadows, water</span></div>
+  </div>
+
+  <h2 id="ov-features">Feature map</h2>
+  <div class="grid">
+    <a class="card link" href="#compositor"><div class="ico">▦</div><h3>Joint compositing</h3><p>All visible volumes are raymarched together in one pass. Overlap, interpenetration and cross-volume shadows are correct per sample.</p></a>
+    <a class="card link" href="#lighting"><div class="ico">✺</div><h3>Lighting &amp; fire</h3><p>Main-light self-shadow, scene shadows in and out, point and spot lights, blackbody flame, and the fire itself as an area light on nearby smoke.</p></a>
+    <a class="card link" href="#water"><div class="ico">≈</div><h3>Water</h3><p>Split-march at the rendered water surface. Above, below, camera on the waterline, and surface breaches. KWS2 and Crest auto-detected.</p></a>
+    <a class="card link" href="#timeline"><div class="ico">⏱</div><h3>Timeline</h3><p>A native track with clips, scrubbing, looping and per-clip frame rate for multi-effect sequencing.</p></a>
+    <a class="card link" href="#layout-mode"><div class="ico">▣</div><h3>Layout mode</h3><p>Block VDB-heavy shots with cheap proxies in the Scene view. Playback, recording and builds are always full fidelity.</p></a>
+    <a class="card link" href="#performance"><div class="ico">⏚</div><h3>Performance</h3><p>Half-res + temporal accumulation, per-volume light cache, screen-rect scissoring, shared work across cameras.</p></a>
+  </div>
+
+  <h2 id="ov-req">Requirements</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Unity</th><td>6000.x with the Universal Render Pipeline (URP 17+). The compositor is built on RenderGraph.</td></tr>
+    <tr><th>Packages</th><td><code>com.unity.render-pipelines.universal</code> and <code>com.unity.timeline</code>. Both assemblies reference Timeline directly, so the package must be installed even in projects that never use a Timeline; the store import adds it when it is missing, and the Package Manager lists it under Unity Registry otherwise.</td></tr>
+    <tr><th>GPU</th><td>Compute-capable desktop GPU. D3D12, Vulkan or Metal.</td></tr>
+    <tr><th>Platforms</th><td>Windows, Linux and macOS standalone. Mobile and console are not supported in this release.</td></tr>
+    <tr><th>Converting</th><td>The Converter runs in the Unity Editor on Windows x64 only: the OpenVDB reader ships as Windows DLLs, editor-only and never part of a build. Playback has no native dependency, so a team on Mac or Linux converts on one Windows machine and copies the imported folder (the <code>.ndvdb</code>, its prefab and their <code>.meta</code> files) into the project. On other editors the Converter window says so instead of opening.</td></tr>
+    <tr><th>Pipelines</th><td>The compositor and water integration are URP-only. An experimental HDRP subshader ships for per-volume playback and is unofficial.</td></tr>
+  </table></div>
+
+  <h2 id="ov-not">What NDVDB is not</h2>
+  <ul>
+    <li><b>Not a fluid simulator.</b> It plays back simulations you author in your DCC.</li>
+    <li><b>Not a runtime-authorable field.</b> Volumes are streamed effects. You can move, scale, time-remap and light them, but not edit voxels at runtime.</li>
+  </ul>
+  <p class="muted small">One-time purchase. Full C# and shader source included. No subscription. Redistributes permissively licensed open-source components (Apache-2.0 / BSD / MIT); full notices are in the package.</p>
+</article>
+
+<!-- ───────────────────────── GETTING STARTED ───────────────────────── -->
+<article class="page" data-page="getting-started" data-title="Getting Started">
+  <div class="eyebrow">Start</div>
+  <h1>Getting Started</h1>
+  <p class="lede">From a fresh URP project to a playing volume in five steps. The Setup window does the project plumbing for you.</p>
+
+  <figure class="media" data-youtube="8DnoTnkNoi0" data-poster="img/a424d8c0af21.jpg" data-caption="From an empty URP project to a playing volume: the Setup wizard, Convert &amp; Import, the prefab dropped into the scene, Play."></figure>
+
+  <ol class="steps">
+    <li><b>Import the package</b><p>Import NDVDB into a Unity 6000.x project that uses URP. The package contains the runtime, editor tooling, shaders, and this documentation under <code>Assets/NDimensionalGames/VDBImporter</code>.</p></li>
+    <li><b>Run NDVDB Setup</b><p>Open <code>Tools ▸ NDVDB ▸ Setup</code>. It checks that URP is active, that every URP renderer has the <b>NDVDB Composite</b> renderer feature, and that the depth texture is enabled. Each item has a one-click fix, or use <b>Fix All Renderers</b>.</p></li>
+    <li><b>Convert a VDB sequence</b><p>Open <code>Tools ▸ NDVDB ▸ Converter</code>, point it at your <code>.vdb</code> folder, pick a quality tier and map grid roles. <b>Convert &amp; Import</b> writes an <code>.ndvdb</code> asset and hands you a prefab with an <b>NDVDB Player</b> already configured. See <a href="#converter">Converting VDBs</a>.</p></li>
+    <li><b>Drop the prefab in the scene</b><p>Place it, scale it if needed, and press Play. The first frame streams instantly; the IO thread reads ahead while you watch. In the editor you can scrub without entering Play mode via the player's <b>Preview Controls</b>.</p></li>
+    <li><b>Light it</b><p>Your directional light drives self-shadowing and scene shadows. Point and spot lights light the smoke automatically. If the sim has a flame grid, it glows with blackbody colour and can optionally emit lights. See <a href="#lighting">Lighting &amp; Fire</a>.</p></li>
+  </ol>
+
+  <div class="callout tip"><span class="ci">✓</span><p><b>The player inspector re-checks setup.</b> Under <b>Playback Readiness</b> each NDVDB Player reports whether the compositor feature is present on the renderer that draws it, and offers the same fixes as the Setup window.</p></div>
+
+  <h2 id="gs-scene">Recommended scene setup</h2>
+  <ul>
+    <li><b>One directional light</b> as the main light. Its shadows are read by the march so geometry shadows the smoke and the smoke shadows the scene.</li>
+    <li><b>Depth texture on</b> for the URP asset. Setup enables it. Transparents and water sort against the smoke through it.</li>
+    <li><b>HDR colour</b> so blackbody flame and bright scatter keep their range through tonemapping.</li>
+    <li><b>Keep the camera's near plane sane.</b> Volumes the camera passes through are supported, but very small near planes waste march steps.</li>
+  </ul>
+
+  <h2 id="gs-next">Where to go next</h2>
+  <div class="grid">
+    <a class="card link" href="#material"><h3>Tune the look</h3><p>Density, absorption, scattering, anisotropy, ambient and flame controls live on the volume material.</p></a>
+    <a class="card link" href="#compositor"><h3>Tune the cost</h3><p>Step size, half-res, temporal accumulation, and shadow taps live on the renderer feature.</p></a>
+    <a class="card link" href="#water"><h3>Add water</h3><p>Set the player's Water Compositing mode. KWS2 and Crest are detected without any component.</p></a>
+  </div>
+</article>
+
+<!-- ───────────────────────── CONVERTER ───────────────────────── -->
+<article class="page" data-page="converter" data-title="Converting VDBs">
+  <div class="eyebrow">Start</div>
+  <h1>Converting VDBs</h1>
+  <p class="lede">The Converter turns an OpenVDB sequence into a single <code>.ndvdb</code> asset: sparse bricks, per-brick quantization, temporal deltas and a lossless Zstandard envelope. It runs in the editor on every core, streams the source files once, and writes atomically.</p>
+
+  <figure class="media" data-img="img/1bf6df7bfc25.png" data-caption="The Converter's Simple tab: source folder and sequence, quality tier, the detected grids with their roles, asset name and import folder."></figure>
+
+  <h2 id="cv-input">Supported input</h2>
+  <ul>
+    <li>A folder of numbered <code>.vdb</code> files (one per frame) or a single <code>.vdb</code> for a static volume.</li>
+    <li><b>Several sequences in one folder.</b> Files whose names differ only by their frame number form one sequence. When the folder holds more than one (two exports side by side, or an export plus a stray file), a <b>Sequence</b> dropdown appears under the folder on both tabs, with the largest sequence selected; one conversion takes one sequence, and the Asset Name follows the pick. A warning under the dropdown lists missing or repeated frame numbers, so a half-copied folder does not quietly become a stuttering asset.</li>
+    <li>Standard OpenVDB <b>float</b> grids, and 16-bit <b>half</b> grids (Houdini's 16-bit float volumes, OpenVDB 13 file format 225), which are promoted to float on load. Double, integer and vector grids other than velocity are not accepted; export as float from your DCC. The converter reads with OpenVDB 13.1, so files from current Blender and Houdini releases open without version warnings.</li>
+    <li>Any exporter that writes compliant OpenVDB: Houdini, EmberGen, Blender, Axiom, and others.</li>
+    <li><b>Blender fluid caches.</b> Blender writes its <code>.vdb</code> frames in domain-local space: voxel (0,0,0) is the domain's corner and the file carries no world position, so on its own a cache would pivot at that corner. The converter reads the cache's sibling <code>config</code> folder (<code>config_####.uni</code>, written with every bake) for the domain object's world matrix, the true cell size and, for adaptive domains, each frame's region, then bakes the true placement into the asset: the pivot is the Blender world origin and adaptive frames sit in one fixed lattice. (Adaptive caches need this: Blender stamps each of their frames with a different, wrong voxel size, so without the config folder they cannot be placed at all.) Point the converter at the <code>data</code> folder and keep <code>config</code> beside it when you copy a cache. A rotated domain is reported in the Console; apply that rotation to the GameObject. <code>Blender Cache Origin</code> (Advanced tab) turns this off.</li>
+    <li><b>Up axis.</b> Houdini and Maya are Y-up; Blender, EmberGen exports, 3ds Max and Unreal are Z-up. <code>Source Up Axis</code> (Advanced tab) defaults to Auto, which reads the file's creator tag and logs its choice. A Y-up file converted as Z-up lies on its side; if you already converted one that way, a −90° X rotation on the GameObject is the equivalent fix.</li>
+    <li><b>Units and scale.</b> A file unit is taken as one metre. <b>Source Units</b> (both tabs) rescales at import: <b>Centimetres</b> for Unreal-targeted exports and for EmberGen sims that were built around a centimetre FBX imported at 100%, or a custom factor. EmberGen has no fixed unit and applies an FBX's node scale but not its unit, while Unity's importer converts centimetre files to metres; importing the model into EmberGen at 1% instead of 100% makes new sims metre-true from the start. The choice becomes the header's import scale, so voxel data is untouched and the value stays editable under <b>Import Transform</b> in the asset inspector. Under the folder the converter shows the size sampled frames (the first with data, the middle and the last of the range) would have in the scene, and flags EmberGen exports wider than 200 m.</li>
+    <li><b>Empty frames.</b> EmberGen writes 1 KB placeholder files for frames before the first emission, and whenever nothing is emitting. They are kept as empty frames so timing is preserved and the player draws nothing for them; the scan detects grids from the first frame that holds data and says how many empty frames lead the range, and the Console's metadata-scan line counts them apart from real full opens. A range in which every frame is empty stops with an error instead of producing an asset.</li>
+  </ul>
+
+  <h2 id="cv-tiers">Quality tiers</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Tier</th><th>What it does</th><th>Use it for</th></tr>
+    <tr><td><b>Draft</b></td><td>Fastest conversion, loose temporal deltas, no packing.</td><td>Look-dev iteration where you re-convert often.</td></tr>
+    <tr><td><b>Standard</b></td><td>Lossless zstd packing. Best size/quality balance for typical smoke and fire.</td><td>Most effects. The default.</td></tr>
+    <tr><td><b>Cinematic</b></td><td>Near-lossless temporal encoding that preserves subtle wisps and ember motion between frames, with periodic I-frames. Larger files.</td><td>Hero shots and close-ups.</td></tr>
+  </table></div>
+  <p>All tiers store voxels at 8 bits per brick with a per-brick range, which gives roughly 11 to 12 bits of effective precision. The tiers differ in how aggressively frame-to-frame deltas are pruned and whether the container is packed; the exact values are listed under <a href="#cv-advanced">Advanced tab</a>.</p>
+
+  <h2 id="cv-speed">Conversion speed</h2>
+  <p>Conversion is a frame pipeline. Every worker thread reads a frame and then encodes whichever frame just became ready, so temporal deltas, quantization, checksums and packing of different frames run on all cores at once while the file is written in order. A 200-frame EmberGen explosion (1.3 GB of <code>.vdb</code>, two grids) converts in about 9 seconds from cache on a 16-thread desktop; the previous serial encoder needed just under three minutes for the same files.</p>
+  <ul>
+    <li><b>Header-only scan.</b> The pass that establishes the sequence's domain reads each file's grid metadata (a fraction of a millisecond per file) instead of decompressing it.</li>
+    <li><b>One sequential stream.</b> Source files are streamed once, in order, through the OS cache before they are parsed, so a spinning or USB drive is never seek-thrashed. On such a drive the first read of the sequence sets the floor: about 30 seconds for 1.5 GB at 50 MB/s.</li>
+    <li><b>Only the mapped grids are read.</b> Velocity, shadow and other unmapped grids are skipped without being decompressed.</li>
+    <li><b>Parallel VDB Reads</b> (Advanced tab, auto = 4) caps how many files OpenVDB parses at once. Encoding always uses every core; file parsing stops scaling after a few threads, so this is separate from <code>Parallel Workers</code>. Lower it on a small laptop, raise it on a large workstation with fast storage.</li>
+    <li><b>Memory</b> is about two frames of raw bricks per worker, trimmed to 35% of physical RAM from the heaviest frame the scan saw.</li>
+    <li>Every conversion logs one <code>[NDVDB Converter] Profile:</code> line to the Console with the time spent in disk, parsing, deltas, quantization, checksums, packing and writing. Read it before changing any setting.</li>
+  </ul>
+
+  <h2 id="cv-roles">Grid roles</h2>
+  <p>NDVDB renders three roles. Map each grid in the file to one of them, or leave a grid unmapped to drop it from the output.</p>
+  <div class="tablewrap"><table>
+    <tr><th>Role</th><th>Drives</th><th>Typical grid names</th></tr>
+    <tr><td><b>Density</b></td><td>Opacity, scattering, shadows.</td><td><code>density</code>, <code>smoke</code></td></tr>
+    <tr><td><b>Flame</b></td><td>Blackbody emission and flame-driven lights.</td><td><code>flame</code>, <code>fire</code>, <code>fuel</code></td></tr>
+    <tr><td><b>Temperature</b></td><td>Optional. Colours the flame by temperature instead of flame intensity. Values are stored as exported; the converter records each grid's maximum in the asset, and the material's <code>Temperature Range Max</code> defaults to it.</td><td><code>temperature</code>, <code>heat</code></td></tr>
+  </table></div>
+
+  <h2 id="cv-output">Output and import</h2>
+  <ul>
+    <li><b>Convert &amp; Import</b> writes the <code>.ndvdb</code> file into your project, imports it as an <b>NDVDB Asset</b>, and creates a prefab with an NDVDB Player and a volume material.</li>
+    <li><b>Asset Name</b> and <b>Import Folder</b> (Simple tab). The name follows the source folder's name until you type one (clear it to go back), or the sequence's own name when the folder holds several; exporters that always use the same folder name, such as Blender's <code>data</code>, are the case for it. The folder defaults to <code>Assets/NDimensionalGames/Imports/&lt;Asset Name&gt;</code>; <b>Browse</b> picks any folder inside the project's Assets, <b>Default</b> returns to it. The Advanced tab has a free Output Folder and Filename for writing outside the project.</li>
+    <li>Writes are atomic: the file appears only when complete, so a Unity import triggered mid-conversion never sees a partial asset.</li>
+    <li>The asset inspector shows frame count, brick statistics, grid roles, and the world-space bounds and voxel size read from the VDB. Its <b>Import Transform</b> (a uniform scale about the simulation origin plus a translation) fixes unit and placement mismatches after import: it is patched into the header, the voxel data is untouched, and every scene player rebuilds its domain live.</li>
+    <li>Scale and origin are preserved. Enable <b>Use VDB Origin</b> on the player to place the volume exactly where it sat in the simulation.</li>
+  </ul>
+
+  <div class="callout note"><span class="ci">i</span><p><b>Footprint.</b> Expect hundreds of megabytes where the raw VDB cache is multiple gigabytes. Sparse bricks skip empty space entirely, and temporal deltas store only what changed.</p></div>
+
+  <h2 id="cv-advanced">Advanced tab</h2>
+  <p>The Simple tab is three presets over the controls below. Switch to Advanced when a sequence needs something the presets do not cover. Every value is baked into the asset at conversion time; nothing here is read at playback.</p>
+  <div class="tablewrap"><table>
+    <tr><th>Preset</th><th>Delta Threshold</th><th>Lossless Packing</th><th>I-Frame Interval</th></tr>
+    <tr><td>Draft</td><td>0.008</td><td>off</td><td>0</td></tr>
+    <tr><td>Standard</td><td>0.004</td><td>on</td><td>0</td></tr>
+    <tr><td>Cinematic</td><td>0.0005</td><td>on</td><td>12</td></tr>
+  </table></div>
+
+  <h3>Source</h3>
+  <div class="tablewrap"><table>
+    <tr><th>Control</th><th>What it does</th></tr>
+    <tr><td><code>Folder</code> / <code>File Pattern</code></td><td>The folder is scanned for files matching the pattern (default <code>*.vdb</code>). The matches are grouped into numbered sequences and ordered by frame number, so <code>frame_2</code> precedes <code>frame_10</code>. The pattern hides files before that grouping, for example <code>smoke_*.vdb</code>.</td></tr>
+    <tr><td><code>Sequence</code></td><td>Shown only when the matches form more than one sequence. Picks the one to convert (the largest by default) and resets the frame range to the whole sequence. Below it, a warning lists missing or repeated frame numbers.</td></tr>
+    <tr><td><code>Start Frame</code> / <code>End Frame</code></td><td>Positions in the chosen sequence's file list, counted from 0 and inclusive; End Frame −1 means the last file. They trim the range, they do not renumber it.</td></tr>
+    <tr><td><code>Match Source Orientation</code></td><td>On by default. The raw VDB to Unity axis swap is a mirror; this flips X and Z so the result is a proper rotation and chiral motion (curling trails, swirls) turns the way it was authored. Turn it off only to byte-match assets converted before the option existed.</td></tr>
+    <tr><td><code>Source Up Axis</code></td><td>Auto, Z-up or Y-up, as described under <a href="#cv-input">Supported input</a>. The Console logs the choice.</td></tr>
+    <tr><td><code>Source Units</code></td><td>As exported / Centimetres (×0.01) / Custom. Written into the header's import scale at convert time, the same value the asset inspector's Import Transform edits later; voxel data is untouched. Shown on both tabs with the sampled frames' size at that choice.</td></tr>
+    <tr><td><code>Blender Cache Origin</code></td><td>Auto reads a Blender cache's <code>config</code> folder for the domain's world placement and true cell size; Off converts the files as written. See <a href="#cv-input">Supported input</a>.</td></tr>
+    <tr><td><code>VDB Grids to Export</code></td><td>The grids of the first file, with their type. Tick <b>Export</b> and pick <b>Maps To</b> (see <a href="#cv-roles">Grid roles</a>): one grid must be Density, each role at most once, a Temperature grid needs a Flame grid. Unticked grids are never decompressed. <b>Scan Folder</b> rereads the list after you change the folder or pattern.</td></tr>
+  </table></div>
+
+  <h3>Codec</h3>
+  <div class="tablewrap"><table>
+    <tr><th>Control</th><th>What it does</th></tr>
+    <tr><td><code>All-I-Frame Mode</code></td><td>Stores every frame as a complete snapshot. A seek, loop wrap or reverse step then costs one frame read. With P-frames the player composites the chain from the nearest I-frame at or before the target, from its RAM cache or from disk on a cold jump, into a single upload. Files are roughly two to three times larger. Worth it for heavy scrubbing, reverse playback or Timeline shots that jump around a long sequence; forward playback gains nothing.</td></tr>
+    <tr><td><code>I-Frame Interval</code></td><td>Writes a full frame every N frames. 0 means the first and the last frame only: the last frame is always an I-frame so a loop restarts with one read. A cold seek composites at most N frames, so the interval is the seek cost you are willing to pay; 24 gives a full frame every second at 24 fps.</td></tr>
+    <tr><td><code>Delta Threshold</code></td><td>A brick is rewritten in a P-frame when any voxel in it moved by more than this, in the grid's own units (density is usually 0 to 1). Bricks that vanish are always recorded, so nothing lingers. Lower keeps subtle drift and ember motion at the cost of larger files.</td></tr>
+    <tr><td><code>Lossless Packing (zstd)</code></td><td>Wraps each frame in a zstd envelope at level 1. Decoded bricks are bit-identical; files shrink a further 1.5 to 3 times. Decoding runs on the streaming thread, so playback cost is unchanged and slow disks read fewer bytes. Draft turns it off for the fastest reconversion loop.</td></tr>
+  </table></div>
+
+  <h3>Resolution</h3>
+  <div class="tablewrap"><table>
+    <tr><th>Control</th><th>What it does</th></tr>
+    <tr><td><code>Downsample</code> / <code>Target Resolution</code> / <code>Maintain Aspect Ratio</code></td><td>Resamples every frame trilinearly to the target grid. With Maintain Aspect Ratio the target is fitted inside the source box (64³ on a 176×128×176 sim becomes 64×47×64). This goes through the dense path, expanding the whole domain per frame, so it is slower and uses more memory than the normal brick path. Use it for distant or mobile variants of a heavy sim.</td></tr>
+  </table></div>
+
+  <h3>Output</h3>
+  <div class="tablewrap"><table>
+    <tr><th>Control</th><th>What it does</th></tr>
+    <tr><td><code>Output Folder</code> / <code>Filename</code></td><td>Anywhere on disk. Only a folder inside the project's Assets is imported by Unity and can receive the prefab.</td></tr>
+    <tr><td><code>Frame Rate</code></td><td>Written into the asset as its native rate; the player and Timeline clips play at it unless told otherwise.</td></tr>
+    <tr><td><code>Create Prefab</code></td><td>After the import, a prefab next to the asset with a player, the default volume material and the compute shader wired, at 1:1 world scale. Never overwrites an existing prefab.</td></tr>
+    <tr><td><code>Temp Folder</code></td><td>Writes the file as <code>name.ndvdb.tmp</code> in that folder and moves it into place when complete. Useful when the output folder sits on a network or slow drive. Left empty, the file is written next to its destination as <code>name.ndvdb~</code> and renamed, so the output is atomic either way. The panel below it shows free space on the drives involved against the estimate.</td></tr>
+  </table></div>
+
+  <h3>Performance</h3>
+  <div class="tablewrap"><table>
+    <tr><th>Control</th><th>What it does</th></tr>
+    <tr><td><code>Parallel Workers</code></td><td>0 means every logical core. Each worker reads a frame and encodes whichever frame is ready; peak memory is about two raw frames per worker, trimmed to 35% of physical RAM.</td></tr>
+    <tr><td><code>Parallel VDB Reads</code></td><td>Caps concurrent OpenVDB file parses (auto = 4). See <a href="#cv-speed">Conversion speed</a>.</td></tr>
+    <tr><td>Estimates and Preview</td><td>Conversion time from a conservative 60 MB/s of source, peak RAM from the frames in flight, and an output size from an empirical ratio for the chosen codec settings. All appear after a scan. The Console's <code>Profile:</code> line after a conversion is the real measurement.</td></tr>
+  </table></div>
+</article>
+
+<!-- ───────────────────────── PLAYER ───────────────────────── -->
+<article class="page" data-page="player" data-title="NDVDB Player">
+  <div class="eyebrow">Core</div>
+  <h1>NDVDB Player</h1>
+  <p class="lede">The component that streams an <code>.ndvdb</code> asset from disk, keeps decoded frames in a RAM-budgeted cache, uploads the current frame into a sparse GPU atlas, and hands the volume to the compositor.</p>
+
+  <figure class="media" data-img="img/f003c651e23e.png" data-caption="The NDVDB Player inspector: Preview Controls, Playback Readiness and the Frame Cache section."></figure>
+
+  <h2 id="pl-playback">Playback</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Setting</th><th>Meaning</th></tr>
+    <tr><td><code>Ndvdb Asset</code></td><td>The converted sequence.</td></tr>
+    <tr><td><code>Frame Rate</code> <span class="def">24</span></td><td>Playback rate in frames per second. Timeline clips can override it per clip.</td></tr>
+    <tr><td><code>Loop</code> <span class="def">on</span></td><td>Wrap at the last frame.</td></tr>
+    <tr><td><code>Play On Start</code> / <code>Play On Enable</code></td><td>Auto-start in Play mode. Use Play On Enable for pooled or re-activated effects.</td></tr>
+  </table></div>
+  <p>Scripting: <code>Play()</code>, <code>Pause()</code>, <code>Stop()</code>, <code>TogglePlayPause()</code>, <code>SetFrame(int)</code>, <code>SeekToFrame(int)</code>, <code>SetTime(float seconds)</code>, <code>SetProgress(0..1)</code>, <code>PrewarmCache()</code>, plus read-only <code>CurrentFrame</code>, <code>PlaybackProgress</code>, <code>GetDuration()</code>, <code>CachedFrames</code>, and <code>IsComposited</code> (true while the scene compositor drew this volume in the last frame).</p>
+
+  <h2 id="pl-preview">Editor preview</h2>
+  <p>The <b>Preview Controls</b> section plays, pauses, loops, frame-steps and scrubs the sequence in the Scene view without entering Play mode. Scrubbing is an undoable operation ("Scrub NDVDB Frame"), so a preview position survives an accidental change.</p>
+
+  <h2 id="pl-streaming">Streaming and memory</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Setting</th><th>Meaning</th></tr>
+    <tr><td><code>Stream Lookahead</code> <span class="def">16</span></td><td>Frames the IO thread decodes ahead of the playhead. Raise for very large frames or slow disks.</td></tr>
+    <tr><td><code>Max Cache Ram MB</code> <span class="def">0 = unlimited</span></td><td>Upper bound for the decoded-frame cache. At 0 the whole sequence stays resident once streamed, so scrubbing, looping and Timeline never touch disk again. Set a budget when many large sequences play together: frames farthest behind the playhead are evicted first and re-stream on the next pass; the playhead and lookahead window are never evicted.</td></tr>
+    <tr><td><code>Use Sparse Atlas</code> <span class="def">on</span></td><td>Upload only occupied bricks into a shared atlas with an indirection table. Off falls back to a dense 3D texture per volume.</td></tr>
+    <tr><td><code>Enable Empty Space Skip</code> <span class="def">on</span></td><td>The march walks an occupancy grid and skips empty bricks.</td></tr>
+  </table></div>
+  <p>The <b>Frame Cache</b> section shows resident frames, the IO queue depth and the memory in use, so you can size the budget against your target machine.</p>
+  <div class="callout note"><span class="ci">i</span><p><b>Off-screen volumes keep their memory on purpose.</b> An enabled player keeps its frame cache and GPU data current so the camera can pan onto it without a hitch; it takes no compositor slot and builds no caches while unseen. To release the memory itself, disable the player or drive it from a Timeline Activation track.</p></div>
+
+  <h2 id="pl-transform">Placement and scale</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Setting</th><th>Meaning</th></tr>
+    <tr><td><code>Use VDB Origin</code></td><td>Offset the volume so the simulation's world origin lands on this transform. Lines up with assets exported from the same scene.</td></tr>
+    <tr><td><code>Fit Natural World Size</code></td><td>Scale the volume to the physical size recorded in the VDB (voxel size × resolution) instead of a unit cube.</td></tr>
+    <tr><td><code>Auto Depth Sort</code> <span class="def">on</span></td><td>Only relevant to the per-volume fallback path. The compositor sorts jointly and skips this.</td></tr>
+  </table></div>
+  <p>Non-uniform domains are supported. A long, thin missile trail keeps its aspect ratio and is sampled sparsely along its length.</p>
+
+  <h2 id="pl-material">Material</h2>
+  <p>Each player renders with a material using the <b>VDB Volume</b> shader. <code>Material Template</code> is the shared source; <code>Instance Material</code>, on by default, gives this player its own in-memory copy of it, so one fireball can run hotter, darker or a different colour without touching the others that share the template. A player added without any material receives the package's default volume material as its template automatically, and the template auto-captures whatever VDB material you drop on the renderer. Tweaks made on the copy last for the session; make lasting looks on the template or a material variant. See <a href="#material">Volume Material</a>.</p>
+  <p><code>Override Emission Properties</code> exposes <code>Blackbody Tint</code> and <code>Blackbody Intensity</code> on the player, which is handy when several effects share a material but one needs a hotter fireball.</p>
+
+  <h2 id="pl-water">Water compositing</h2>
+  <p><code>Water Compositing</code> chooses how this effect relates to water in the scene: <b>Depth Sorted</b> (default, sorts by depth like any transparent), <b>Show Above</b>, <b>Show Below</b>, or <b>Surface Split</b> (renders both halves). The <a href="#water">Water</a> page covers the modes in detail.</p>
+
+  <h2 id="pl-proxy">Proxy Mode</h2>
+  <p><code>Proxy Mode</code> is an editor-only layout aid: <b>Inherit</b> follows the session-wide Layout Mode level, or force <b>Full</b>, <b>Preview</b>, <b>Brick</b> or <b>Bounds Only</b> for this player. It never affects Play mode, recording or builds. See <a href="#layout-mode">Layout Mode</a>.</p>
+</article>
+
+<!-- ───────────────────────── MATERIAL ───────────────────────── -->
+<article class="page" data-page="material" data-title="Volume Material">
+  <div class="eyebrow">Core</div>
+  <h1>Volume Material</h1>
+  <p class="lede">The <b>VDB Volume</b> shader holds the look of an effect. The compositor reads these values per volume, so every setting here applies whether the volume is drawn jointly or by the fallback path.</p>
+
+  <div class="media-row">
+    <figure class="media" data-img="img/747ae0909e99.png" data-caption="Smoke: absorption, scatter colour and anisotropy on the volume material."></figure>
+    <figure class="media" data-img="img/8b03b6455b37.png" data-caption="Fire: blackbody intensity, flame threshold and falloff."></figure>
+  </div>
+
+  <h2 id="mt-density">Density</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Property</th><th>Range</th><th>Meaning</th></tr>
+    <tr><td><code>Density Multiplier</code></td><td>0 – 100 <span class="def">3</span></td><td>Scales the density grid. Thin sims such as missile or rocket trails often need 20 to 60 to occlude convincingly.</td></tr>
+    <tr><td><code>Density Bias</code></td><td>0 – 1 <span class="def">0.02</span></td><td>Subtracted before scaling. Cleans low-level noise and tightens the silhouette.</td></tr>
+    <tr><td><code>Step Size</code></td><td>0.001 – 0.1 <span class="def">0.015</span></td><td>March step in volume space for the fallback path. The compositor uses its own <code>stepSize</code>.</td></tr>
+    <tr><td><code>Max Steps</code></td><td>int <span class="def">192</span></td><td>Step cap for the fallback path.</td></tr>
+  </table></div>
+
+  <h2 id="mt-smoke">Smoke shading</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Property</th><th>Range</th><th>Meaning</th></tr>
+    <tr><td><code>Smoke Scatter Color</code></td><td>colour</td><td>Albedo of the smoke under light.</td></tr>
+    <tr><td><code>Smoke Absorption</code></td><td>0 – 20 <span class="def">8</span></td><td>How quickly light is absorbed. Higher = darker, more opaque smoke.</td></tr>
+    <tr><td><code>Scatter Coefficient</code></td><td>0 – 20 <span class="def">4</span></td><td>How much light is scattered toward the camera. The absorption/scatter ratio sets the smoke's brightness.</td></tr>
+    <tr><td><code>Anisotropy</code></td><td>-0.99 – 0.99 <span class="def">0.25</span></td><td>Henyey-Greenstein phase. Positive favours forward scattering: bright rims when the light is behind the smoke.</td></tr>
+    <tr><td><code>Multiple Scattering</code></td><td>0 – 3 <span class="def">0.3</span></td><td>Approximates light bouncing inside the volume. Lifts dense smoke toward its albedo independent of density, which is how you get bright white cumulus rather than grey soup.</td></tr>
+    <tr><td><code>Multi Scatter Albedo Tint</code></td><td>colour</td><td>Tints the multiple-scattering contribution only.</td></tr>
+    <tr><td><code>Powder</code></td><td>0 – 1 <span class="def">0</span></td><td>Beer-powder term on the single-scatter sun light: front-lit edges and crevices, where the sun has barely attenuated, go darker than the body, which is the crumpled, pillowy look of real cumulus. Weighted to front lighting (sun behind the camera) and fading out toward the sun. Keep <code>Multiple Scattering</code> above zero with it so the edges darken without hollowing. A few instructions per sample; no extra marches.</td></tr>
+  </table></div>
+
+  <h2 id="mt-ambient">Ambient</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Property</th><th>Range</th><th>Meaning</th></tr>
+    <tr><td><code>Ambient Source</code></td><td>Material Color / Scene Ambient <span class="def">Material Color</span></td><td>Where the sky and ground colours come from. <b>Scene Ambient</b> reads the scene's Environment Lighting (the ambient probe in Skybox, Gradient or Color mode) straight up for the sky term and straight down for the ground term, so the smoke sits in the same hemisphere light as the rest of the scene and follows the skybox as you change it. <code>Ambient Color</code> and <code>Ground Bounce Color</code> are ignored then; the two intensities still scale the result (1 = as the scene). The probe is evaluated on the CPU once per frame, so this costs the GPU nothing. In Skybox mode the probe must exist: generate lighting once (or leave Auto Generate on) after changing the skybox.</td></tr>
+    <tr><td><code>Ambient Intensity</code> / <code>Ambient Color</code></td><td>0 – 2 <span class="def">0.18</span></td><td>Sky fill. Keeps shadowed smoke from going black. With <code>Ambient Source</code> = Scene Ambient, start at 1.</td></tr>
+    <tr><td><code>Ground Bounce Intensity</code> / <code>Ground Bounce Color</code></td><td>0 – 2 <span class="def">0</span></td><td>Light bounced up from the ground, the mirror of the sky term: occluded by a march straight <em>down</em> through the density at the <code>Ambient Sky Occlusion</code> strength, so undersides pick up the ground colour while tops keep the sky. With Scene Ambient the colour is the probe's downward value (warm over sand, green over grass). 0 = off and free; on, it is served from the light cache when that is enabled, otherwise it costs one extra occlusion march per sample, the same as the sky term.</td></tr>
+    <tr><td><code>Ambient Sky Occlusion</code></td><td>0 – 1 <span class="def">0</span></td><td>Darkens the fill inside the volume by marching toward the sky. The occlusion is softened by the same multiple-scattering octaves as the sun term, so with <code>Multiple Scattering</code> above zero interiors go grey rather than black. Served from the <a href="#lighting">light cache</a> when enabled, so it is cheap.</td></tr>
+  </table></div>
+
+  <h2 id="mt-fire">Fire</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Property</th><th>Range</th><th>Meaning</th></tr>
+    <tr><td><code>Blackbody Intensity</code></td><td>0 – 100 <span class="def">15</span></td><td>Emission strength of the flame grid.</td></tr>
+    <tr><td><code>Flame Threshold</code></td><td>0 – 1 <span class="def">0.05</span></td><td>Flame values below this do not emit. Trims the faint halo around a fireball.</td></tr>
+    <tr><td><code>Flame Falloff</code></td><td>0.1 – 5 <span class="def">1.5</span></td><td>Curve from threshold to full emission.</td></tr>
+    <tr><td><code>Use Temperature Grid for Colour</code></td><td>toggle <span class="def">off</span></td><td>With a temperature grid mapped, the flame takes its colour from temperature and its intensity from the flame grid. The compositor's Flame Emission and the Flame Lights follow the same ramp. Ignored when the asset has no temperature grid.</td></tr>
+    <tr><td><code>Temperature Range Max</code></td><td>0 = asset max</td><td>Temperature value that reaches the top of the flame colour ramp. At 0 the player uses the maximum the converter recorded for the grid, so EmberGen exports (about 0 to 2.3) and Kelvin exports (thousands) both use the whole ramp. Set it explicitly to pin the look across assets.</td></tr>
+    <tr><td><code>Flame Illum Radius (UVW)</code></td><td>0 – 0.3 <span class="def">0.08</span></td><td>How far the flame grid illuminates surrounding smoke inside the same volume. This is what makes a fireball glow through its own soot.</td></tr>
+  </table></div>
+
+  <h2 id="mt-shadow">Self-shadow and additional lights</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Property</th><th>Range</th><th>Meaning</th></tr>
+    <tr><td><code>Shadow Steps</code> / <code>Shadow Step Size</code></td><td>int / 0.01 – 0.5</td><td>The main-light self-shadow march. With the light cache on, this is evaluated once per frame per brick instead of per sample.</td></tr>
+    <tr><td><code>Shadow Density Scale</code></td><td>0 – 10 <span class="def">2.5</span></td><td>Density used for self-shadowing only. Raise for punchier contrast without thickening the smoke.</td></tr>
+    <tr><td><code>Shadow March Blur (mip LOD)</code></td><td>0 – 3 <span class="def">1</span></td><td>Sample a blurrier level for shadows: softer, cheaper, less noise.</td></tr>
+    <tr><td><code>Max Additional Lights Per Sample</code></td><td>0 – 8 <span class="def">4</span></td><td>Cap on point/spot lights evaluated per sample.</td></tr>
+    <tr><td><code>Additional Light Scatter Multiplier</code></td><td>0 – 4 <span class="def">1</span></td><td>Scales how strongly additional lights scatter in the smoke.</td></tr>
+    <tr><td><code>Additional Light Shadow Steps</code></td><td>0 – 16 <span class="def">0</span></td><td>Cheaper occlusion march for point/spot lights inside the smoke. 0 uses <code>Shadow Steps</code>. A value of 2 to 4 keeps the shading and removes most of the cost.</td></tr>
+    <tr><td><code>Depth Fade Distance</code></td><td>0.0001 – 5 <span class="def">0.5</span></td><td>Soft blend where the volume meets opaque geometry.</td></tr>
+    <tr><td><code>Flame Emission Tint</code> / <code>Flame Emission Gain</code></td><td>HDR colour / 0 – 8</td><td>Colour and gain of the glow this fire casts on smoke through the compositor's Flame Emission. Does not change how the fire itself renders.</td></tr>
+  </table></div>
+
+  <h2 id="mt-caster">Shadow casting onto the scene</h2>
+  <p>Volumes cast real-time shadows onto geometry through a proxy ShadowCaster pass. <code>Shadow Alpha Threshold</code>, <code>Shadow Filter Radius</code>, <code>Shadow Cast Steps</code> and <code>Shadow Cast Density Scale</code> shape that projected shadow. The cast is independent of the compositor, so it works with the fallback path too.</p>
+  <figure class="media" data-img="img/94c986257f80.png" data-caption="A plume casting a soft shadow across terrain from the main light."></figure>
+</article>
+
+<!-- ───────────────────────── COMPOSITOR ───────────────────────── -->
+<article class="page" data-page="compositor" data-title="Scene Compositor">
+  <div class="eyebrow">Core · <span class="badge urp">URP</span></div>
+  <h1>Scene Compositor</h1>
+  <p class="lede">The <b>NDVDB Composite</b> renderer feature raymarches every visible volume jointly in a single pass, then resolves, upsamples and composites the result with correct depth so transparents and water sort against the smoke.</p>
+
+  <figure class="media" data-youtube="j98-FwWmFgk" data-poster="img/e2bf873b3f8d.jpg" data-caption="Two volumes interpenetrating. First with the joint march, where both volumes interleave per pixel, then with per-object transparency sorting, where the overlap pops as the sort order flips."></figure>
+
+  <h2 id="cp-why">Why a joint march</h2>
+  <p>Drawing each volume as its own transparent object breaks the moment two effects overlap, because a whole object must be either in front of or behind another. The compositor instead gathers up to eight visible volumes per frame and marches them together, so at every sample along a ray it knows the density of all of them. Overlap, interpenetration and cross-volume shadows fall out naturally. Volumes beyond the eight slots render through the per-volume fallback path, with a one-time warning in the Console.</p>
+
+  <h2 id="cp-pipeline">What happens each frame</h2>
+  <ol class="steps">
+    <li><b>Gather</b><p>Every enabled player is collected once per frame and shared by every camera (Scene and Game views). The trace, resolve and composite passes are scissored to the screen rect the volumes actually cover, so a small effect on a big screen costs a small effect. Players entirely off screen still occupy a compositor slot and keep streaming; see the Performance Guide.</p></li>
+    <li><b>Light cache</b><p>Once per frame, a compute pass evaluates main-light self-shadow, sky occlusion and ground occlusion on each volume's brick lattice. The march then fetches instead of re-marching. See <a href="#lighting">Lighting</a>.</p></li>
+    <li><b>Trace</b><p>The joint march, at half resolution by default, writing colour with coverage plus a depth distribution (mean and spread) for the composite.</p></li>
+    <li><b>Temporal resolve</b><p>Accumulates with the previous frame's history per camera, rejecting samples that fall outside the current view to avoid smearing.</p></li>
+    <li><b>Upsample and composite</b><p>A joint-bilateral upsample to full resolution guided by scene depth, blended over the scene. A depth-occlusion write lets transparents and water that draw later sort against the smoke.</p></li>
+  </ol>
+
+  <h2 id="cp-quality">Quality settings</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Setting</th><th>Default</th><th>Meaning</th></tr>
+    <tr><td><code>Step Size</code></td><td>0.05</td><td>World-space march step. The march adapts it to the occupied length along each ray, so this is a baseline, not a fixed cost.</td></tr>
+    <tr><td><code>Max Steps</code></td><td>256</td><td>Per-ray cap.</td></tr>
+    <tr><td><code>Soft Depth Fade</code></td><td>0.15</td><td>Soft blend against opaque geometry, in world units.</td></tr>
+    <tr><td><code>Half Resolution</code></td><td>on</td><td>Trace at half resolution and upsample with depth guidance. Visually indistinguishable on most smoke, roughly a quarter of the cost.</td></tr>
+    <tr><td><code>Temporal Accumulation</code> / <code>Temporal Feedback</code></td><td>on / 0.88</td><td>Blend with history to remove step noise. Higher feedback is smoother and slower to respond.</td></tr>
+  </table></div>
+
+  <h2 id="cp-shadows">Shadow settings</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Setting</th><th>Default</th><th>Meaning</th></tr>
+    <tr><td><code>Cross Volume Shadows</code></td><td>on</td><td>One volume's density darkens its neighbours along the light direction.</td></tr>
+    <tr><td><code>Cross Shadow Taps</code> / <code>Cross Shadow Strength</code></td><td>4 / 1</td><td>Samples per cross-shadow lookup and its weight.</td></tr>
+    <tr><td><code>Cross Shadow Point Lights</code></td><td>on</td><td>Extend cross-volume shadowing to additional lights.</td></tr>
+    <tr><td><code>Receive Scene Shadows</code></td><td>on</td><td>Geometry shadows the smoke through the main-light shadow map. One filtered tap per march step.</td></tr>
+  </table></div>
+
+  <h2 id="cp-sorting">Sorting with transparents</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Setting</th><th>Default</th><th>Meaning</th></tr>
+    <tr><td><code>Transparents Depth Occlusion</code></td><td>on</td><td>Write the smoke's representative depth so later transparents (particles, glass, water) sort against it.</td></tr>
+    <tr><td><code>Depth Occlusion Coverage</code></td><td>0.5</td><td>Coverage threshold at which the smoke counts as an occluder. Lower catches wispier smoke; higher keeps thin edges from hiding transparents behind them.</td></tr>
+    <tr><td><code>Injection Point</code></td><td>Before Transparents</td><td>Where the composite runs. Water modes pin their own events and ignore this.</td></tr>
+  </table></div>
+
+  <h2 id="cp-perf">Performance settings</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Setting</th><th>Default</th><th>Meaning</th></tr>
+    <tr><td><code>Light Cache</code></td><td>on</td><td>Per-volume cache of main-light self-shadow, sky occlusion and ground occlusion. Identical result, large saving on dense smoke. <code>Light Cache Shader</code> is found automatically.</td></tr>
+    <tr><td><code>Scissor To Volumes</code></td><td>on</td><td>Restrict every compositor pass to the screen rect covered by visible volumes.</td></tr>
+    <tr><td><code>Skip Overlay Cameras</code></td><td>on</td><td>Overlay cameras in a stack share the base camera's target. Compositing again would draw the smoke twice.</td></tr>
+  </table></div>
+  <p>The <a href="#performance">Performance Guide</a> explains what each of these costs and which to trade first.</p>
+
+  <h2 id="cp-culling">Culling and the slot pool</h2>
+  <p>The compositor has eight slots per frame, and a Surface Split volume takes two. With <code>Frustum Culling</code> on, only volumes whose bounds intersect the camera's view compete for them, so a scene can hold as many placed effects as the shot needs as long as no more than eight slots' worth are in view at once. The test uses a slightly wider frustum than the camera plus <code>Cull Margin</code>, so a volume is composited a step before its edge enters frame and its temporal history is primed.</p>
+  <p><b>Reveals never hitch.</b> An off-screen player keeps streaming and keeps its GPU data current; it simply holds no slot and builds no light or emission cache while unseen. When the camera pans onto it, nothing has to be rebuilt. The player inspector shows "off screen" while this is the case.</p>
+  <p><b>When more than eight are in view</b>, the player's <code>Composite Priority</code> decides who keeps a slot: higher wins, ties go to volumes already composited, then to the nearer one. The rest render through the per-volume path until the shot clears, and the Console says so once. Give a shot's hero effect a higher priority than its set dressing.</p>
+  <p><b>Pinning.</b> A player's <code>Always Composite</code> keeps that volume in the compositor even while it is off screen: it always holds a slot and keeps its caches warm, so a camera moving faster than the reveal margin can never catch it between the per-volume path and the compositor. Pinned volumes win slot contention outright. It costs one slot while unseen, two for Surface Split, so reserve it for the hero effects of fast shots.</p>
+  <div class="tablewrap"><table>
+    <tr><th>Setting</th><th>Default</th><th>Meaning</th></tr>
+    <tr><td><code>Frustum Culling</code></td><td>on</td><td>Composite only volumes in the camera's view. Per camera: the Scene and Game views each get their own set.</td></tr>
+    <tr><td><code>Cull Margin</code></td><td>0.5</td><td>World-space margin around each volume's box, on top of a 4% field-of-view allowance.</td></tr>
+    <tr><td><code>Composite Priority</code> <span class="muted">(player)</span></td><td>0</td><td>Slot priority when more volumes are in view than slots, -10 to 10.</td></tr>
+    <tr><td><code>Always Composite</code> <span class="muted">(player)</span></td><td>off</td><td>Never culled; always holds a slot and warm caches; first in line for contention.</td></tr>
+  </table></div>
+
+  <h2 id="cp-fallback">Without the feature</h2>
+  <p>If a renderer has no NDVDB Composite feature, each player draws itself through the per-volume path in the VDB Volume shader. You keep lighting, fire and shadow casting, but lose joint overlap, cross-volume shadows and water integration. The Setup window and the player inspector both flag this state.</p>
+</article>
+
+<!-- ───────────────────────── LIGHTING ───────────────────────── -->
+<article class="page" data-page="lighting" data-title="Lighting &amp; Fire">
+  <div class="eyebrow">Core</div>
+  <h1>Lighting &amp; Fire</h1>
+  <p class="lede">How the smoke is lit, how it shadows itself and the scene, how the flame grid glows, and how fire can light the world around it.</p>
+
+  <figure class="media" data-youtube="qW3RCQWpBi8" data-poster="img/d1885b267ed8.jpg" data-caption="One plume under the main light with self-shadow, scene shadows toggled in and out, point lights, flame emission and flame lights."></figure>
+
+  <h2 id="lt-main">Main light and self-shadow</h2>
+  <p>The directional main light drives single scattering with a Henyey-Greenstein phase (see <code>Anisotropy</code>). Self-shadowing marches from each sample toward the light through the volume's own density, using <code>Shadow Steps</code>, <code>Shadow Step Size</code> and <code>Shadow Density Scale</code> from the material.</p>
+  <p><b>Light cache.</b> With <code>Light Cache</code> enabled on the feature, that shadow march, the ambient sky occlusion and the ground-bounce occlusion are evaluated once per frame per volume on the brick lattice and stored in a small 3D texture. The march then does one fetch per sample. The result is identical; the saving is largest on dense, heavily shadowed smoke.</p>
+
+  <h2 id="lt-scene">Scene shadows, both directions</h2>
+  <ul>
+    <li><b>Into the smoke.</b> <code>Receive Scene Shadows</code> samples the main-light shadow map once per march step, so a building or a wing casts a real shadow through a plume.</li>
+    <li><b>Onto the scene.</b> Each volume renders a proxy ShadowCaster pass so the plume darkens the ground under it. Shape it with the <code>Shadow Cast …</code> material properties.</li>
+    <li><b>Between volumes.</b> <code>Cross Volume Shadows</code> lets one effect darken another along the light direction.</li>
+  </ul>
+
+  <h2 id="lt-additional">Point and spot lights</h2>
+  <p>URP additional lights (point and spot) light the smoke through the standard light loop, up to <code>Max Additional Lights Per Sample</code>. Each light is occluded by the smoke between it and the sample. That occlusion is the expensive part, and <code>Additional Light Shadow Steps</code> on the material lets you make it cheaper than the main-light march without disabling it.</p>
+
+  <h2 id="lt-flame">Flame grid</h2>
+  <p>A flame grid emits blackbody colour scaled by <code>Blackbody Intensity</code>, above <code>Flame Threshold</code> with a <code>Flame Falloff</code> curve. If a temperature grid is mapped and <code>Use Temperature Grid for Colour</code> is on, temperature picks the colour along the ramp (up to <code>Temperature Range Max</code>, by default the grid's recorded maximum) while the flame grid keeps driving intensity. <code>Flame Illum Radius</code> spreads that glow into the surrounding smoke of the same volume, which is how a fireball lights its own soot from inside.</p>
+  <div class="media-row">
+    <figure class="media" data-img="img/e431811cbf6c.png" data-caption="Flame Illum Radius 0: emission only."></figure>
+    <figure class="media" data-img="img/c0fa3a70ba6c.png" data-caption="Flame Illum Radius 0.35: the fireball lights its own smoke."></figure>
+  </div>
+
+  <h2 id="lt-emission">Fire as an area light</h2>
+  <p>With <code>Flame Emission</code> enabled on the feature, the flame grid itself lights the smoke: this volume's own and every neighbour's. Once per frame, for each volume, a small irradiance cache is built by tracing twelve wide cones from every cache node through the brick-mean pyramids of all volumes, accumulating the fire's emitted radiance behind the smoke's own extinction. Exposed flame reaches the volume next door; buried flame is absorbed before it leaves. The march then adds one fetch per sample.</p>
+  <ul>
+    <li><b>No hot spots and no lag.</b> There are no point sources. The whole emitting surface contributes, and the cache is rebuilt from the current content frame, so the light moves exactly with the fire, holds when it holds, and dies when it dies.</li>
+    <li><b>Smooth by construction.</b> Emission and occlusion come from trilinear brick-mean pyramids whose footprint widens with distance, and the lattice stores a field that is already band-limited to its own spacing. Fine structure in the image comes from the sharp density at each sample, not from the light.</li>
+    <li><b>The shine survives.</b> Each node also stores the mean incoming direction and a directionality. The march blends its phase function from isotropic to Henyey-Greenstein accordingly, so smoke between you and the fire still glows more than smoke lit from behind you.</li>
+    <li><b>The crisp rim stays.</b> <code>Flame Illum Radius</code> remains the sharp near-field term next to a flame tongue, below the cache's brick scale.</li>
+    <li><b>Colour is the material's.</b> The fire's emission is evaluated per voxel with the material's flame threshold, falloff, flame ramp, blackbody tint and intensity, and temperature-driven colour when the material uses it, then averaged into the pyramid. A purple explosion lights its surroundings purple.</li>
+    <li><b>Creative colour per material.</b> <code>Flame Emission Tint</code> and <code>Flame Emission Gain</code> on the volume material colour and scale the glow this fire casts on smoke without changing how the fire itself renders. A hot white core can cast a deep orange glow.</li>
+    <li><b>Water split volumes count once.</b> A Surface Split player occupies two compositor slots; the emission pass treats them as one volume, so the fire never lights its own smoke twice.</li>
+  </ul>
+  <div class="tablewrap"><table>
+    <tr><th>Feature setting</th><th>Default</th><th>Meaning</th></tr>
+    <tr><td><code>Flame Emission</code></td><td>off</td><td>Enable the cone-traced fire light. Needs a flame grid on at least one volume. Dense and sparse-atlas volumes both work.</td></tr>
+    <tr><td><code>Flame Emission Strength</code></td><td>1</td><td>Overall gain, 0 to 8. 1 is the fire's own rendered radiance integrated over the sky as seen from the smoke.</td></tr>
+    <tr><td><code>Flame Emission Self</code></td><td>0.1</td><td>Weight of a volume's own fire on its own smoke, 0 to 4. Inside a fireball the smoke is lit from every direction, so 1 blows the source out toward white.</td></tr>
+    <tr><td><code>Flame Emission Neighbours</code></td><td>1</td><td>Weight of neighbouring volumes' fire on this smoke, 0 to 8. A neighbour sees the fire under a small solid angle, so this wants far more than Self.</td></tr>
+    <tr><td><code>Debug Flame Emission View</code></td><td>off</td><td>Paints the cached irradiance times density instead of the shaded smoke, tone-compressed so hue stays readable at any Strength. Judge colour, smoothness and reach here first.</td></tr>
+  </table></div>
+  <figure class="media" data-img="img/3a38cddc988d.png" data-caption="Debug Flame Emission View: the fire irradiance field alone, on two overlapping volumes."></figure>
+  <div class="callout note"><span class="ci">i</span><p><b>Division of labour.</b> The emission cache lights smoke. Scene geometry is lit by the Flame Lights below, which are placed on exposed fire from the same data and skip the march while the cache is active.</p></div>
+
+  <h2 id="lt-flamelights">Flame Lights: fire on geometry</h2>
+  <p>Enable <code>Emit Flame Lights</code> on the player to spawn up to <code>Flame Light Count</code> real point lights on the fire. They are how fire reaches scene geometry: decks, walls, characters and water respond with their own albedo, specular and, if you enable it, shadows, which no screen-space trick can give in a forward renderer. Range, intensity, smoothing and flicker are per player. The lights animate in the sequence's own time, so a held frame holds them still, a scrub snaps them, and slow motion slows them.</p>
+  <p><b>Placed on visible fire.</b> Each flame brick is weighted by how much of its light escapes the smoke around it, estimated from the density recorded at decode time. A light is earned, tracked and powered by that exposed fire: a blaze buried in its plume attracts no light, a light over fire that gets smothered fades in place, and a light never sits where you cannot see flame. <code>Flame Light Exposure</code> scales the effect; 0 restores raw flame brightness.</p>
+  <p><b>One job each.</b> While Flame Emission lights the smoke, the flame lights are skipped inside the march and light geometry only, so fire never lights the smoke twice. <code>Flame Lights Also Light Smoke</code> on the feature restores the old behaviour. The material's <code>Flame Emission Tint</code> colours the lights as it colours the glow on smoke.</p>
+  <div class="tablewrap"><table>
+    <tr><th>Player setting</th><th>Default</th><th>Meaning</th></tr>
+    <tr><td><code>Flame Light Count</code></td><td>2</td><td>Lights per player. Two to four covers most fireballs.</td></tr>
+    <tr><td><code>Flame Light Threshold</code></td><td>0.25</td><td>Minimum flame value for a cluster to attract a light.</td></tr>
+    <tr><td><code>Flame Light Intensity</code> / <code>Range</code></td><td>100 / 0.75</td><td>Light strength and reach (range is in volume space).</td></tr>
+    <tr><td><code>Flame Light Smoothing</code> / <code>Flicker</code></td><td>0.4 / 0.15</td><td>Temporal smoothing of position and intensity, and added flicker.</td></tr>
+    <tr><td><code>Flame Light Core Radius</code></td><td>0</td><td>Optional emitter core as a fraction of the light's range. Smoke inside it never occludes the light. Raise it per effect when a light is born deep in dense smoke; a large core also flattens the source volume's own shading, which is why it is off by default.</td></tr>
+    <tr><td><code>Flame Light Exposure</code></td><td>1</td><td>How strongly buried fire is discounted when earning, placing and powering lights. 1 uses the material's own absorption; 0 is raw flame brightness.</td></tr>
+  </table></div>
+  <p><b>How flame lights are occluded.</b> A flame light is shadowed by the smoke between the sample and the light, and by nothing behind it. The receiving volume's own density is marched only up to the light; neighbouring volumes' density is accumulated only along that same segment; the light's emitter core is excluded from both. <code>Flame Light Occlusion Strength</code> on the feature then scales the total (1 = as computed, 0.5 = half the optical depth, 0 = unoccluded).</p>
+  <p><b>Occlusion policy.</b> Flame lights are recognised inside the march by position, so the feature's <code>Flame Light Occlusion</code> can treat them differently from scene lights:</p>
+  <div class="tablewrap"><table>
+    <tr><th>Policy</th><th>Behaviour</th></tr>
+    <tr><td><b>Cheap Mean</b> <span class="def">default</span></td><td>Occlude with <code>Flame Light Cheap Taps</code> (default 4) reads of brick mean density. Looks right, costs little.</td></tr>
+    <tr><td><b>Same As Scene Lights</b></td><td>Full per-light occlusion march.</td></tr>
+    <tr><td><b>Skip</b></td><td>No occlusion for flame lights. Cheapest; fine when the lights sit inside the fireball anyway.</td></tr>
+  </table></div>
+  <div class="callout tip"><span class="ci">✓</span><p><b>Flame lights barely reach nearby volumes?</b> Lower <code>Flame Light Occlusion Strength</code> to 0.5 before raising intensity. Then raise <code>Flame Light Core Radius</code> if the light is born deep in a dense plume. Intensity mostly brightens geometry; occlusion is what decides whether the light gets out of the fireball.</p></div>
+  <div class="callout tip"><span class="ci">✓</span><p><b>Keep flame lights optional.</b> Most explosions read perfectly with the flame grid's own emission and illumination radius. Turn on flame lights when the fire must visibly light nearby geometry or a second volume.</p></div>
+
+  <h2 id="lt-multiscatter">Multiple scattering</h2>
+  <h3>Clouds</h3>
+  <p>Clouds are almost pure scatterers, so the single biggest lever is the albedo you set through <code>Smoke Absorption</code> against <code>Scatter Coefficient</code>: the explosion default (8 against 4) is soot with an albedo of a third, which no amount of ambient will turn white. The shipped <b>VDB_VolumeURP_Clouds</b> material is a starting point: absorption 0.3, scatter 12, <code>Anisotropy</code> 0.55 for the silver lining, <code>Multiple Scattering</code> 2, ambient 0.35 in a sky blue with <code>Ambient Sky Occlusion</code> 0.5. Tune <code>Density Multiplier</code> to the asset first, then step size, then the rest.</p>
+  <p><b>Matching a reference render.</b> Cloud references are lit by a whole sky and a ground, not one colour. Set <code>Ambient Source</code> to <b>Scene Ambient</b> with the reference's HDRI as the skybox: the sky term takes the probe's colour straight up and <code>Ground Bounce</code> (start at 0.5) the colour straight down, both occluded through the cloud, so the shading follows the skybox instead of two hand-picked colours; bring <code>Ambient Intensity</code> up to about 1. Add <code>Powder</code> (0.3 to 0.6) for the darker front-lit crevices of real cumulus. Neither costs a march when the light cache is on.</p>
+  <p><code>Multiple Scattering</code> approximates the light that bounces around inside the volume before reaching the camera. It brightens dense regions toward the smoke's albedo without changing their opacity, so you can have bright white steam and pyro next to dark soot using the same density.</p>
+</article>
+
+<!-- ───────────────────────── WATER ───────────────────────── -->
+<article class="page" data-page="water" data-title="Water">
+  <div class="eyebrow">Integration · <span class="badge urp">URP</span></div>
+  <h1>Water Integration</h1>
+  <p class="lede">Explosions at the waterline are the shots everyone remembers. NDVDB splits the march at the rendered water surface so smoke renders correctly above, below, and through it, from either side of the surface.</p>
+
+  <figure class="media" data-youtube="dfDhj20yAhY" data-poster="img/414fd896d7ef.jpg" data-caption="Underwater missile launch through the surface with the camera half submerged: Surface Split with the wave-exact clip, each half composited on its own side."></figure>
+
+  <h2 id="wt-modes">Water Compositing modes</h2>
+  <p>Set per effect on the NDVDB Player.</p>
+  <div class="tablewrap"><table>
+    <tr><th>Mode</th><th>Use when</th><th>What it does</th></tr>
+    <tr><td><b>Depth Sorted</b> <span class="def">default</span></td><td>The effect never touches water, or sits fully on one side.</td><td>Sorts against water by depth like any transparent. Cheapest.</td></tr>
+    <tr><td><b>Show Above</b></td><td>The effect is above the surface but its bounds dip below it.</td><td>Marches only the part above the water and presents it on the correct side of the water pass.</td></tr>
+    <tr><td><b>Show Below</b></td><td>The effect is underwater.</td><td>Marches only the part below the water; the water's own refraction distorts it.</td></tr>
+    <tr><td><b>Surface Split</b></td><td>Breaches: launches, impacts, dives.</td><td>Marches both halves and presents each on its side. The most complete, and the most expensive: it uses two of the compositor's eight slots.</td></tr>
+  </table></div>
+
+  <h2 id="wt-detect">Water detection (no component needed)</h2>
+  <p>With <code>Auto Detect Water</code> on the feature (default), NDVDB finds <b>KWS Water System 2</b> and <b>Crest Water 4</b> in the scene through reflection. There is no compile dependency and nothing to add. Detection provides:</p>
+  <ul>
+    <li>the mean water height and whether the camera is above, below or straddling the surface;</li>
+    <li>the water system's own per-pixel surface mask (the KWS2 prepass, the Crest ocean mask), so every pixel knows which side it is on;</li>
+    <li>the water system's surface depth, used for the wave-exact split and wave occlusion.</li>
+  </ul>
+  <p>For any other planar water, add an <b>NDVDB Water Surface</b> component at the water height. It supplies the plane; the split then uses a plane test per pixel.</p>
+  <div class="tablewrap"><table>
+    <tr><th>Component</th><th>Purpose</th></tr>
+    <tr><td><code>NDVDB Water Surface</code></td><td>Generic planar water. <code>Height Offset</code> shifts the plane. <code>Split Mask Source</code>: Auto, Plane Test, or Water System Mask.</td></tr>
+    <tr><td><code>NDVDB Water Surface KWS</code> / <code>… Crest</code></td><td>Optional overrides when auto-detection is on. Use them to force a height offset or a mask source for that system.</td></tr>
+  </table></div>
+
+  <h2 id="wt-split">The wave-exact split</h2>
+  <p>With <code>Wave Exact Split</code> (default on, active when a water system mask is available) each ray is clipped where it crosses the <em>rendered</em> water surface rather than a flat plane at the mean height. The above-half stops at the wave; the below-half starts there. Because the surface is read from the water system's own depth prepass, the split follows every wave point for point, and it stays correct when:</p>
+  <ul>
+    <li>the camera sits exactly on the waterline with the view split across it;</li>
+    <li>an effect breaches the surface, in either direction;</li>
+    <li>the camera crosses the surface during a shot. Each half keeps its own temporal history, so there is no flash;</li>
+    <li>the camera is fully submerged below the troughs, looking up at crests. The post-water composite occludes at the same per-pixel surface crossing the march clipped at, so clip and presentation always agree.</li>
+  </ul>
+  <div class="media-row">
+    <figure class="media" data-img="img/338e8c8af3ed.png" data-caption="Plane split: the clip runs level through the waves, so crests cut into the above-water smoke."></figure>
+    <figure class="media" data-img="img/015c50badea7.png" data-caption="Wave-exact split: the clip follows the rendered surface point for point."></figure>
+  </div>
+  <p><b>Presentation.</b> The half on the far side of the water from the camera is drawn before the water, into the opaque capture the water refracts. The half on the camera's side is composited after the water. A camera clear of the surface reduces to one side per half; a straddling camera gets both on one screen, decided per pixel by the mask. With any water source the far-side halves are drawn after the skybox, so they keep their soft edges through the surface, and with KWS2 or Crest the underwater half seen from above also carries a fog-matched depth for the surface's own depth fog (Crest's exponential fog, KWS2's absorption law): thin smoke fogs like the water behind it, dense smoke at its own distance, and the effect stays visible through deep water instead of being fogged to the seabed.</p>
+
+  <h2 id="wt-plane">Plane mode</h2>
+  <p>Without a water-system mask (generic <b>NDVDB Water Surface</b>) the split is a plane at the mean height. <code>Wave Crest Compensation</code> lowers that plane by roughly your wave amplitude so crests do not cut the above-water smoke. It has no effect in wave-exact mode, where it is unnecessary.</p>
+
+  <h2 id="wt-fog">Underwater fog</h2>
+  <p><code>Match Water Fog</code> (default on) makes underwater smoke fog exactly like everything else in the water. With KWS2 the compositor applies KWS2's absorption law to the smoke. With Crest, whose underwater pass runs after the compositor and fogs each pixel at the depth it finds, the compositor presents the smoke with a fog-matched depth: a per-pixel depth chosen so that Crest's own fog, in Crest's own colour, yields exactly smoke fogged at its distance over water fogged at its own. No fog colour is ported, so edges are continuous whatever the ocean material does, and only Crest's depth fog density is read. Because Crest reads URP's depth texture rather than the live depth buffer, that depth is mirrored into the depth texture as well.</p>
+  <p><code>Far Side Distortion Range</code> (default 0) is an advanced lever for the far-side half: beyond this distance the half is presented with depth cleared so the water's distortion covers it. Leave it at 0 unless you see a seam in the water system's own refraction at range.</p>
+
+  <h2 id="wt-debug">Diagnostics</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Feature setting</th><th>What it shows</th></tr>
+    <tr><td><code>Log Water Routing</code></td><td>One-shot log line per camera: detected source (KWS2, Crest, component, none), side mode, camera above/below/split, and which halves were enqueued. Auto-unticks.</td></tr>
+    <tr><td><code>Debug Water Side View</code> → Pixel Side</td><td>Paints the per-pixel decision instead of the smoke: red classed underwater, green above, blue the raw mask. Use while the camera straddles the surface.</td></tr>
+  </table></div>
+  <figure class="media" data-img="img/d21353c2bd16.png" data-caption="Debug Water Side View, Pixel Side, with the camera on the waterline: red is classed underwater, green above."></figure>
+
+  <h2 id="wt-checklist">Checklist for a waterline shot</h2>
+  <ol class="steps">
+    <li><b>Player: Surface Split</b><p>Set <code>Water Compositing</code> to Surface Split on the effect that breaches. Effects fully on one side can stay Depth Sorted.</p></li>
+    <li><b>Feature: defaults</b><p><code>Auto Detect Water</code>, <code>Wave Exact Split</code> and <code>Match Water Fog</code> on. No component needed for KWS2 or Crest.</p></li>
+    <li><b>Verify routing</b><p>Tick <code>Log Water Routing</code> once and confirm the source and side mode in the Console.</p></li>
+    <li><b>Look at the seam</b><p>Put the camera on the waterline. If a half is missing, switch the debug view to Pixel Side and check the classification matches the picture.</p></li>
+  </ol>
+</article>
+
+<!-- ───────────────────────── TIMELINE ───────────────────────── -->
+<article class="page" data-page="timeline" data-title="Timeline">
+  <div class="eyebrow">Integration</div>
+  <h1>Timeline</h1>
+  <p class="lede">A native Timeline track binds to an NDVDB Player. Clips start, loop, time-remap and scrub the sequence, in the editor and in Play mode.</p>
+
+  <figure class="media" data-img="img/fedb16150154.png" data-caption="An NDVDB track sequencing three clips: a launch, its plume and a secondary burst."></figure>
+
+  <h2 id="tl-track">Adding a track</h2>
+  <ol class="steps">
+    <li><b>Add an NDVDB track</b><p>In the Timeline window, <b>Add ▸ NDVDB Timeline Track</b>. Bind it to the NDVDB Player in the scene.</p></li>
+    <li><b>Add clips</b><p>Right-click the track and add an NDVDB clip. Move and trim it like any clip; the sequence plays from its first frame at the clip start.</p></li>
+    <li><b>Scrub</b><p>Drag the playhead. The player seeks to the matching frame and the Scene view updates without Play mode.</p></li>
+    <li><b>Check the timeline's length</b><p>In the Timeline settings keep <b>Duration Mode</b> at Based On Clips, or make sure a Fixed Length timeline's end marker sits past your clips. A fixed length of 0 plays for zero seconds in Play mode even though scrubbing still works.</p></li>
+  </ol>
+
+  <h2 id="tl-clip">Clip settings</h2>
+  <p>A new clip snaps to the sequence's exact length: frame count divided by the frame rate in effect. Change the clip's Frame Rate Override and the clip rescales in place, taking the clip's speed multiplier into account, so the timeline always shows the true duration of what will play.</p>
+  <div class="tablewrap"><table>
+    <tr><th>Setting</th><th>Default</th><th>Meaning</th></tr>
+    <tr><td><code>Loop Clip</code></td><td>off</td><td>Wrap the sequence inside the clip. Off holds the last frame when the clip outlasts the sequence.</td></tr>
+    <tr><td><code>Frame Rate Override</code></td><td>0</td><td>Play the sequence at this rate inside the clip and resize the clip to match. 0 uses the asset's frame rate. Combine with clip speed for slow motion.</td></tr>
+  </table></div>
+  <p>Clips support clip-in, speed multiplier, looping and extrapolation, so the standard Timeline trimming and retiming tools all apply.</p>
+
+  <h2 id="tl-activation">Activation and memory</h2>
+  <p>A player with no active clip on its track is idle: it holds its last frame or, with an Activation track controlling the GameObject, is disabled and releases its cache. For long cinematics with many effects, pair NDVDB tracks with Activation tracks so only the effects in the current shot occupy RAM and GPU atlas slots.</p>
+
+  <h2 id="tl-layout">Timeline and Layout Mode</h2>
+  <p>When a Timeline is playing, the editor's Layout Mode <b>Auto</b> level drops all proxies and renders at full fidelity. Scrubbing a stopped Timeline keeps the proxies, so blocking a shot stays fast. See <a href="#layout-mode">Layout Mode</a>.</p>
+</article>
+
+<!-- ───────────────────────── LAYOUT MODE ───────────────────────── -->
+<article class="page" data-page="layout-mode" data-title="Layout Mode">
+  <div class="eyebrow">Integration · <span class="badge editor">Editor only</span></div>
+  <h1>Layout Mode</h1>
+  <p class="lede">Block a VDB-heavy cinematic with cheap proxies, then get full fidelity the moment anything plays. Layout Mode never touches Play mode, recording or builds.</p>
+
+  <figure class="media" data-youtube="rm57IUslr44" data-poster="img/ddf36377cbdc.jpg" data-caption="Layout Mode: switching proxy levels from the Scene view overlay while placing six effects, then Play for full fidelity."></figure>
+
+  <h2 id="lm-levels">Levels</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Level</th><th>What renders</th><th>Cost</th></tr>
+    <tr><td><b>Off</b> (Full)</td><td>Everything at full quality.</td><td>Full</td></tr>
+    <tr><td><b>Preview</b></td><td>The real volume at a coarser march with lighting simplified. Reads correctly for framing and timing.</td><td>Low</td></tr>
+    <tr><td><b>Brick</b></td><td>Occupied bricks as a tinted block silhouette. Shows the sim's shape and extent per frame.</td><td>Very low</td></tr>
+    <tr><td><b>Bounds Only</b></td><td>A tinted box gizmo of the volume bounds. Scrubbing seeks are deferred until you leave this level.</td><td>Near zero</td></tr>
+    <tr><td><b>Auto (full while playing)</b></td><td>Applies the chosen level while idle and drops to Full whenever a player or Timeline is playing.</td><td>—</td></tr>
+  </table></div>
+
+  <h2 id="lm-where">Where to set it</h2>
+  <ul>
+    <li><b>Scene view overlay.</b> The NDVDB overlay in the Scene view toolbar switches the session-wide level with one click. The same overlay carries the compositor and player sub-windows described below.</li>
+    <li><b>Menu.</b> <code>Tools ▸ NDVDB ▸ Layout Mode ▸ Off / Preview / Brick / Bounds Only / Auto</code>.</li>
+    <li><b>Per player.</b> <code>Proxy Mode</code> on the NDVDB Player: Inherit the session level, or pin this effect to Full, Preview, Brick or Bounds Only. Pin the hero effect to Full and let the background effects follow the session.</li>
+  </ul>
+  <p>The level is stored in the editor session, not in the scene, so it never ships and never dirties your assets. The player inspector shows the effective level and a warning when a proxy is active.</p>
+
+  <div class="callout note"><span class="ci">i</span><p><b>Guaranteed full fidelity.</b> Entering Play mode, Timeline playback, Recorder sessions and builds always resolve to Full regardless of the session level.</p></div>
+
+  <h2 id="lm-overlay">The NDVDB overlay</h2>
+  <p>One overlay in the Scene view carries everything you need while working: docked in the toolbar it is a compact strip, floated or docked to a side it expands into a dashboard with the same three sections.</p>
+  <ul>
+    <li><b>Layout.</b> The level buttons and the Auto toggle.</li>
+    <li><b>Compositor</b> (settings icon). A live status line, "N of 8 slots, M in view, K off screen, tier", plus the feature's day-to-day levers without leaving the Scene view: Frustum Culling and Light Cache; Quality with Half Resolution, Temporal Accumulation, Temporal Feedback and Step Size; Flame Emission with its Strength, Self and Neighbours sliders; Water with Match Water Fog, Wave Exact Split and Wave Crest Compensation; the two debug views and a one-shot water routing log. Every change is undoable, one undo step per drag, and saved on the renderer feature.</li>
+    <li><b>Players</b> (memory icon; the button itself shows slots in use and the off-screen count). A table of every player in the open scenes: state (composited, off screen, per-volume, proxy, disabled), current frame, frame-cache RAM, GPU memory, and a Pin toggle for Always Composite. Click a name to select the player. Totals at the bottom.</li>
+  </ul>
+  <p>The footer opens Setup, the Converter, and this documentation.</p>
+  <figure class="media" data-img="img/3f5c1a052478.png" data-caption="The NDVDB overlay floated as a dashboard: Layout level, Compositor status and toggles, and the player table."></figure>
+</article>
+
+<!-- ───────────────────────── PERFORMANCE ───────────────────────── -->
+<article class="page" data-page="performance" data-title="Performance Guide">
+  <div class="eyebrow">Ship it</div>
+  <h1>Performance Guide</h1>
+  <p class="lede">What costs what, which levers lose nothing, and which to trade first when a shot is over budget.</p>
+
+  <h2 id="pf-free">Free wins (on by default)</h2>
+  <ul>
+    <li><b>Light Cache.</b> Main-light self-shadow, sky and ground occlusion once per frame per volume instead of per sample. Identical image.</li>
+    <li><b>Scissor To Volumes.</b> Every compositor pass is limited to the screen rect the volumes cover. A small effect on a big screen costs a small effect.</li>
+    <li><b>Shared gather.</b> Volume collection and uploads happen once per frame and are shared by the Scene and Game views and any extra cameras.</li>
+    <li><b>Empty space skip and sparse atlas.</b> The march walks occupancy and skips empty bricks; only occupied bricks live in GPU memory.</li>
+    <li><b>Skip Overlay Cameras.</b> Camera stacks composite once.</li>
+  </ul>
+  <p><b>Flame Emission</b> is opt-in. Its cost is one compute build per frame, about a 32³ lattice times twelve cones times up to ten steps per marched volume, and one texture fetch per sample in the march. On a desktop GPU that is a fraction of a millisecond per volume. It replaces the need for Flame Lights on smoke, so turning those off when it is on usually nets a saving.</p>
+
+  <h2 id="pf-order">What to trade, in order</h2>
+  <ol class="steps">
+    <li><b>Half Resolution + Temporal Accumulation</b><p>Keep both on. This is the single largest saving and the temporal resolve hides the half-res trace on smoke.</p></li>
+    <li><b>Additional Light Shadow Steps</b><p>Set 2 to 4 on the material. Point and spot light occlusion drops from the main-light shadow cost to a fraction, with the same shading.</p></li>
+    <li><b>Flame Light Occlusion → Cheap Mean</b><p>The default. Use Skip when the flame lights sit inside the fireball.</p></li>
+    <li><b>Step Size</b><p>Raise gradually. The march adapts to occupied length, so a larger baseline mostly affects long rays through thin smoke.</p></li>
+    <li><b>Cross Shadow Taps</b><p>Drop from 4 to 2 on scenes where volumes rarely overlap along the light.</p></li>
+    <li><b>Max Additional Lights Per Sample</b><p>Lower it when many small lights sit near the smoke.</p></li>
+    <li><b>Density Multiplier for thin sims</b><p>A trail that needs Density Multiplier 40 to read is also a trail that terminates rays sooner. Thicker is often cheaper.</p></li>
+  </ol>
+
+  <h2 id="pf-memory">Memory</h2>
+  <ul>
+    <li><b>RAM.</b> <code>Max Cache Ram MB</code> caps decoded frames. The Frame Cache section of the player shows use. Sequences that fit stay resident.</li>
+    <li><b>VRAM.</b> Each enabled player holds an atlas slot sized to its densest frame. Disabled players hold nothing.</li>
+    <li><b>Off-screen players</b> take no compositor slot and build no caches, but keep their frame cache and GPU data current so they can enter frame without a hitch. Use Timeline Activation or disable them to release the memory itself.</li>
+  </ul>
+
+  <h2 id="pf-ab">A/B toggles</h2>
+  <p>The feature's diagnostics let you measure a suspect cost without editing materials:</p>
+  <div class="tablewrap"><table>
+    <tr><th>Toggle</th><th>Removes</th></tr>
+    <tr><td><code>Debug Skip Additional Lights In March</code></td><td>All point/spot lighting inside the smoke.</td></tr>
+    <tr><td><code>Debug Skip Add Light Self Shadow</code></td><td>Only the per-light occlusion march; lights still shade.</td></tr>
+  </table></div>
+  <p>If the frame time barely moves with a toggle, that path is not your problem.</p>
+
+  <h2 id="pf-budget">Rules of thumb</h2>
+  <div class="grid">
+    <div class="card"><h3>Screen coverage dominates</h3><p>Cost scales with the pixels the smoke covers, not with how many volumes exist. A full-screen plume costs more than eight small ones.</p></div>
+    <div class="card"><h3>Overlap is cheap</h3><p>The joint march pays per ray, not per volume. Overlapping effects add samples, not passes.</p></div>
+    <div class="card"><h3>Lights are per sample</h3><p>Every additional light is evaluated at every sample it reaches. Range matters more than count.</p></div>
+  </div>
+</article>
+
+<!-- ───────────────────────── BUILDS ───────────────────────── -->
+<article class="page" data-page="builds" data-title="Builds &amp; Deployment">
+  <div class="eyebrow">Ship it</div>
+  <h1>Builds &amp; Deployment</h1>
+  <p class="lede">Sequences deploy themselves. The build processor copies every referenced <code>.ndvdb</code> into StreamingAssets for Windows, Linux and macOS standalone players.</p>
+
+  <h2 id="bd-how">How it works</h2>
+  <ul>
+    <li>Each <b>NDVDB Asset</b> references its <code>.ndvdb</code> file. After the build, the processor copies every sequence referenced by an <b>enabled build scene</b> straight into the finished build's <code>StreamingAssets/NDVDB</code> folder, where the runtime streams from.</li>
+    <li>Nothing is staged through <code>Assets/StreamingAssets</code>. That keeps the project from doubling hundreds of megabytes per sequence and keeps the asset database from hashing them during the build.</li>
+    <li>Unused sequences are not copied, so they never bloat the build.</li>
+    <li>The compositor's compute shaders live in <code>Resources</code> inside the package and are included automatically.</li>
+  </ul>
+
+  <div class="callout warn"><span class="ci">!</span><p><b>Runtime-instantiated prefabs.</b> A sequence used only by a prefab that appears in no build scene is not detected. Copy its <code>.ndvdb</code> into the build's <code>StreamingAssets/NDVDB</code> folder yourself, or reference it from a scene.</p></div>
+
+  <h2 id="bd-platforms">Platform notes</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Platform</th><th>API</th><th>Status</th></tr>
+    <tr><td>Windows</td><td>D3D12, Vulkan</td><td>Supported</td></tr>
+    <tr><td>Linux</td><td>Vulkan</td><td>Supported</td></tr>
+    <tr><td>macOS</td><td>Metal</td><td>Supported</td></tr>
+    <tr><td>Mobile, console, WebGPU</td><td>—</td><td>Not supported in this release</td></tr>
+  </table></div>
+
+  <h2 id="bd-checklist">Pre-ship checklist</h2>
+  <ol class="steps">
+    <li><b>Run NDVDB Setup</b><p>Every renderer used by a shipped camera needs the compositor feature and the depth texture.</p></li>
+    <li><b>Set a RAM budget</b><p>The default of 0 is unlimited, which is right for a few sequences. When many large sequences play together, give each player a <code>Max Cache Ram MB</code> that fits the minimum-spec machine.</p></li>
+    <li><b>Layout Mode is not a concern</b><p>It is editor-only session state and never ships.</p></li>
+    <li><b>Test a build</b><p>Confirm the sequences appear under StreamingAssets and play from a clean install path.</p></li>
+  </ol>
+</article>
+
+<!-- ───────────────────────── TROUBLESHOOTING ───────────────────────── -->
+<article class="page" data-page="troubleshooting" data-title="Troubleshooting">
+  <div class="eyebrow">Ship it</div>
+  <h1>Troubleshooting</h1>
+  <p class="lede">Start with <code>Tools ▸ NDVDB ▸ Setup</code>. It catches the three causes of "nothing renders" and fixes them with one click.</p>
+
+  <details open><summary>Nothing renders, or the volume is a flat box</summary>
+    <ul>
+      <li>URP is not the active pipeline. Assign a URP asset in <b>Project Settings ▸ Graphics</b>.</li>
+      <li>The renderer has no NDVDB Composite feature. Run Setup, or check <b>Playback Readiness</b> on the player.</li>
+      <li>The depth texture is off. Setup's <b>Enable Depth Texture</b> fixes it.</li>
+      <li>Layout Mode is at Bounds Only or Brick. Check the Scene view overlay.</li>
+    </ul>
+  </details>
+  <details><summary>The volume plays when you scrub the Timeline but not in Play mode</summary>
+    <p>Open the Timeline window's settings (the cog). If <b>Duration Mode</b> is <b>Fixed Length</b> and the length reads 0, the PlayableDirector sees a zero-second timeline: it ends on its first frame in Play mode, pauses and drops its graph, while scrubbing in the window still evaluates the clips. Choose <b>Based On Clips</b>, or drag the timeline's end marker past your clips. The NDVDB track logs a warning naming the timeline when it detects this. A player that is driven by Timeline also shows this in Play mode as a Current Frame that never leaves 0. Turn on <code>Tools ▸ NDVDB ▸ Diagnostics ▸ Play-Mode Trace</code> to get one Console line per second with what the timeline asked for, what the player applied and the director's state.</p>
+  </details>
+  <details><summary>The material keeps reverting to the default explosion look</summary>
+    <p>With <code>Instance Material</code> on, the player clones its <code>Material Template</code>. A template set on a prefab instance now wins over the material still sitting on the prefab's MeshRenderer; assigning a material on the renderer instead re-clones from that one. Both routes work, the most recent change wins.</p>
+  </details>
+  <details><summary>The smoke is drawn twice or looks doubled</summary>
+    <p>A camera stack with an Overlay camera that also composites. <code>Skip Overlay Cameras</code> is on by default; if you disabled it, re-enable it.</p>
+  </details>
+  <details><summary>Particles or glass draw on top of the smoke they should be behind</summary>
+    <p>Enable <code>Transparents Depth Occlusion</code> and lower <code>Depth Occlusion Coverage</code> so wispier smoke counts as an occluder. Also confirm the transparent material writes and tests depth as expected.</p>
+  </details>
+  <details><summary>A Houdini or Maya export lies on its side</summary>
+    <p>Those applications are Y-up. Re-convert with <code>Source Up Axis</code> on Auto (it reads the Houdini creator tag) or Y-up, or rotate the GameObject −90° about X for an asset already converted as Z-up.</p>
+  </details>
+  <details><summary>The sun shines straight through dense smoke with some skyboxes</summary>
+    <p>Suns baked into HDRI cubemaps sit at tens of thousands of nits, and any residual transmittance multiplies that. The march used to stop at 0.2% transmittance and leave that floor in place: invisible against a procedural sky of a few units, a white disc against an HDRI. The exit threshold now maps to exactly opaque, so dense smoke blocks any background. Through thin smoke a very bright sun still shows, which is what a camera sees; if that reads as a leak in your shot, lower the cubemap's sun or drive the sun from the directional light. Lens flare components are a separate case: they draw after the compositor and are hidden only by depth, so enable <code>Transparents Depth Occlusion</code> and check the flare's occlusion settings.</p>
+  </details>
+  <details><summary>Underwater smoke is invisible, or only its densest blotches show, from above the water (KWS2, Crest)</summary>
+    <p>The water surface fogs what it refracts by the depth behind the surface. Leave <b>Match Water Fog</b> on: the compositor then presents the underwater half with a fog-matched depth, and the surface fogs it at the smoke's own distance. With it off, the smoke is still in the refraction but fogged as if it sat on the seabed, which in deep water hides it completely. <b>Log Water Routing</b> prints one summary line per camera; it should read <code>sideMode=2</code> (KWS2) or <code>3</code> (Crest), <code>farEvent=AfterRenderingSkybox+1</code> and <code>farSurfaceFog=True</code>.</p>
+  </details>
+  <details><summary>A water half is missing, or the split is a flat line</summary>
+    <ul>
+      <li>Tick <code>Log Water Routing</code> and read the Console line. Source <b>none</b> means neither KWS2 nor Crest was detected and no NDVDB Water Surface exists.</li>
+      <li>Side mode 1 (plane) with KWS2 or Crest present means the water system's mask was not available this frame. Confirm the water is enabled and rendering for that camera.</li>
+      <li>Switch <code>Debug Water Side View</code> to Pixel Side. The red/green picture must match the water you see.</li>
+      <li>The player's <code>Water Compositing</code> must be Surface Split for a breach. Show Above or Show Below intentionally hide the other half.</li>
+    </ul>
+  </details>
+  <details><summary>Underwater smoke looks like a cutout in the fog, or a lighter halo surrounds it</summary>
+    <p>Enable <code>Match Water Fog</code> on the feature and keep <code>Transparents Depth Occlusion</code> on. For Crest the fog port also needs an Ocean Renderer whose material carries the depth fog density; the routing log names the detected source.</p>
+  </details>
+  <details><summary>Ghosting or smearing when the camera moves fast</summary>
+    <p>Lower <code>Temporal Feedback</code> (try 0.8). The resolve already rejects history outside the current view; feedback controls how quickly the rest converges.</p>
+  </details>
+  <details><summary>The volume's shadow on the ground is a soft blob, whatever the material says</summary>
+    <p>The shadow is drawn into URP's shadow map, so its sharpness is set by the URP asset before any material control. Shadow Distance decides the texel size: with a 2048 map and four cascades, 1000 m puts the first cascade at roughly 12 cm per texel, while 100 m gives about 1 cm. Lower the distance, or move the first cascade split in, and raise Main Light Shadow Resolution to 4096 if you need more. Keep Soft Shadows on: its filtering is what blends the brick boundaries of the caster into a continuous shadow; only lower its quality if the penumbra is wider than you want. On the volume material, <b>Shadow Alpha Threshold</b> maps alpha from the threshold to five times the threshold onto shadow strength, so a lower value (0.05 to 0.1) reads as a solid plume rather than a haze, and <b>Shadow Cast Density Scale</b> darkens the footprint.</p>
+  </details>
+  <details><summary>Flame lights blow out nearby surfaces, linger, or wander off the fire</summary>
+    <p>Flame lights are real point lights, so a surface a metre from the fire sees the full inverse-square intensity. On the player's Flame Lights section: <b>Intensity</b> defaults to 100, tuned for a large fireball lighting distant smoke, so 30 to 40 suits fire near geometry; <b>Range</b> is a multiple of the effect's longest axis, and 0.4 to 0.5 keeps the lit pool under the fire; <b>Smoothing</b> is the settle time for brightness and position, so lower it to 0.1 to 0.15 when lights outlive the flame; <b>Threshold</b> decides which regions earn a light, with hysteresis down to half its value before the light dies, so 0.4 to 0.5 keeps lights on the core only. Leave <b>Exposure</b> at 1, which places lights on flame that escapes the smoke, and <b>Core Radius</b> at 0 unless the fire must light a neighbouring volume through its own plume. A Bloom post-process volume multiplies whatever hot spot remains.</p>
+  </details>
+  <details><summary>Fire does not light nearby smoke, or lights it too much</summary>
+    <p>Enable <code>Flame Emission</code> on the feature and look at <code>Debug Flame Emission View</code> first. If the field is empty, read the "[NDVDB] Flame Emission" line in the Console: it lists, per slot, whether a flame source was found, the proxy state, and whether the compositor pass has compiled. If neighbours are weak, raise <code>Flame Emission Neighbours</code>; if the source volume looks washed out, lower <code>Flame Emission Self</code>. Flame Lights can stay off for smoke once emission is on.</p>
+  </details>
+  <details><summary>Flame lights barely light nearby volumes even at high intensity</summary>
+    <p>Occlusion, not intensity, is the limiter. Lower the feature's <code>Flame Light Occlusion Strength</code> (try 0.5), then raise the player's <code>Flame Light Core Radius</code> if the light spawns deep inside dense smoke. Confirm <code>Flame Light Occlusion</code> is not set to Skip if you expect soft occlusion, and that <code>Cross Shadow Point Lights</code> is on if you want neighbours to occlude at all.</p>
+  </details>
+  <details><summary>Flame lights stopped lighting the smoke after enabling Flame Emission</summary>
+    <p>By design: the emission cache lights the smoke and the lights light geometry, so fire is not counted twice. Tick <code>Flame Lights Also Light Smoke</code> on the feature to have both.</p>
+  </details>
+  <details><summary>Flame lights jump on held frames or during scrubbing</summary>
+    <p>They animate in content time, so a held frame keeps them still by design. If they still jump, raise <code>Flame Light Smoothing</code> or lower <code>Flame Light Count</code> so clusters do not swap.</p>
+  </details>
+  <details><summary>Water-system console errors right after a shader recompile</summary>
+    <p>KWS2 logs transient compute-shader property and kernel errors during a domain reload. They clear on the next frame and are unrelated to NDVDB. If they persist across frames, re-import the KWS2 folder.</p>
+  </details>
+  <details><summary>The effect drops into the scene 100× too big or too small</summary>
+    <p>The file's units do not match Unity's metres. Set <b>Source Units</b> in the converter (Centimetres for Unreal-targeted exports and for EmberGen sims built around a centimetre FBX imported at 100%), or fix an asset you already converted with <b>Import Transform → Scale</b> in its inspector (0.01 for centimetres): the header is patched in place, no re-conversion. Unity's FBX importer converts centimetre files to metres and EmberGen does not, which is where the 100× comes from; importing the FBX into EmberGen at 1% makes new sims metre-true.</p>
+  </details>
+  <details><summary>The converted asset flickers between two effects, or has more frames than the export</summary>
+    <p>The source folder holds more than one numbered sequence, or a stray <code>.vdb</code> sits beside the frames. The converter groups files by name and shows a <b>Sequence</b> dropdown under the folder when that happens; check the pick (the largest sequence is selected by default) and the frame count under it before converting. Older assets converted from such a folder need a re-conversion.</p>
+  </details>
+  <details><summary>Conversion rejects my VDB</summary>
+    <p>Only standard OpenVDB float grids are accepted. Export float grids (not half or double) and untiled storage from your DCC. In Houdini, set the VDB's storage to 32-bit float before writing.</p>
+  </details>
+  <details><summary>The effect is too faint even at high density</summary>
+    <p><code>Density Multiplier</code> goes to 100. For very thin sims (trails, steam), values of 20 to 60 are normal. Lower <code>Density Bias</code> if the sim's values are small overall.</p>
+  </details>
+</article>
+
+<!-- ───────────────────────── REFERENCE ───────────────────────── -->
+<article class="page" data-page="reference" data-title="Settings Reference">
+  <div class="eyebrow">Reference</div>
+  <h1>Settings Reference</h1>
+  <p class="lede">Every inspector setting in one place, grouped by component. Defaults in grey.</p>
+
+  <h2 id="rf-feature">NDVDB Composite (renderer feature)</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Group</th><th>Setting</th><th>Default</th><th>Notes</th></tr>
+    <tr><td rowspan="3">Quality</td><td><code>Step Size</code></td><td>0.05</td><td>0.005 – 1, world units</td></tr>
+    <tr><td><code>Max Steps</code></td><td>256</td><td>32 – 1024</td></tr>
+    <tr><td><code>Soft Depth Fade</code></td><td>0.15</td><td>0 – 2</td></tr>
+    <tr><td rowspan="4">Shadows</td><td><code>Cross Volume Shadows</code></td><td>on</td><td></td></tr>
+    <tr><td><code>Cross Shadow Taps</code></td><td>4</td><td>2 – 8</td></tr>
+    <tr><td><code>Cross Shadow Strength</code></td><td>1</td><td>0 – 4</td></tr>
+    <tr><td><code>Receive Scene Shadows</code> / <code>Cross Shadow Point Lights</code></td><td>on / on</td><td></td></tr>
+    <tr><td rowspan="2">Culling</td><td><code>Frustum Culling</code></td><td>on</td><td>Per camera</td></tr>
+    <tr><td><code>Cull Margin</code></td><td>0.5</td><td>0 – 10 m</td></tr>
+    <tr><td rowspan="3">Performance</td><td><code>Half Resolution</code></td><td>on</td><td></td></tr>
+    <tr><td><code>Temporal Accumulation</code> / <code>Temporal Feedback</code></td><td>on / 0.88</td><td>0 – 0.95</td></tr>
+    <tr><td><code>Light Cache</code> / <code>Scissor To Volumes</code> / <code>Skip Overlay Cameras</code></td><td>on</td><td>Identical image, lower cost</td></tr>
+    <tr><td rowspan="2">Sorting</td><td><code>Transparents Depth Occlusion</code></td><td>on</td><td></td></tr>
+    <tr><td><code>Depth Occlusion Coverage</code></td><td>0.5</td><td>0.05 – 0.95</td></tr>
+    <tr><td rowspan="5">Water</td><td><code>Auto Detect Water</code></td><td>on</td><td>KWS2, Crest</td></tr>
+    <tr><td><code>Wave Exact Split</code></td><td>on</td><td>Needs a water-system mask</td></tr>
+    <tr><td><code>Wave Crest Compensation</code></td><td>0</td><td>0 – 5, plane mode only</td></tr>
+    <tr><td><code>Match Water Fog</code></td><td>on</td><td></td></tr>
+    <tr><td><code>Far Side Distortion Range</code></td><td>0</td><td>0 – 200, advanced</td></tr>
+    <tr><td rowspan="6">Flame emission</td><td><code>Flame Emission</code></td><td>off</td><td>Cone-traced fire light on smoke</td></tr>
+    <tr><td><code>Flame Emission Strength</code></td><td>1</td><td>0 – 8</td></tr>
+    <tr><td><code>Flame Emission Self</code></td><td>0.1</td><td>0 – 4</td></tr>
+    <tr><td><code>Flame Emission Neighbours</code></td><td>1</td><td>0 – 8</td></tr>
+    <tr><td><code>Debug Flame Emission View</code></td><td>off</td><td>Paints the irradiance field</td></tr>
+    <tr><td><code>Flame Lights Also Light Smoke</code></td><td>off</td><td>Lights skip the march while emission is active</td></tr>
+    <tr><td rowspan="3">Flame lights</td><td><code>Flame Light Occlusion</code></td><td>Cheap Mean</td><td>Same As Scene Lights · Cheap Mean · Skip</td></tr>
+    <tr><td><code>Flame Light Cheap Taps</code></td><td>4</td><td>2 – 8</td></tr>
+    <tr><td><code>Flame Light Occlusion Strength</code></td><td>1</td><td>0 – 2, exponent on the transmittance</td></tr>
+    <tr><td rowspan="3">Diagnostics</td><td><code>Log Water Routing</code></td><td>off</td><td>One-shot</td></tr>
+    <tr><td><code>Debug Water Side View</code></td><td>Off</td><td>Off · Pixel Side</td></tr>
+    <tr><td><code>Debug Skip Additional Lights In March</code> / <code>Debug Skip Add Light Self Shadow</code></td><td>off</td><td>A/B only</td></tr>
+    <tr><td>Advanced</td><td><code>Injection Point</code></td><td>Before Rendering Transparents</td><td>Water modes ignore it</td></tr>
+  </table></div>
+
+  <h2 id="rf-player">NDVDB Player</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Group</th><th>Setting</th><th>Default</th></tr>
+    <tr><td rowspan="4">Playback</td><td><code>Ndvdb Asset</code></td><td>—</td></tr>
+    <tr><td><code>Frame Rate</code></td><td>24</td></tr>
+    <tr><td><code>Loop</code></td><td>on</td></tr>
+    <tr><td><code>Play On Start</code> / <code>Play On Enable</code></td><td>on / off</td></tr>
+    <tr><td rowspan="2">Material</td><td><code>Material Template</code></td><td>—</td></tr>
+    <tr><td><code>Instance Material</code></td><td>on</td></tr>
+    <tr><td rowspan="4">Data</td><td><code>Use Sparse Atlas</code></td><td>on</td></tr>
+    <tr><td><code>Enable Empty Space Skip</code></td><td>on</td></tr>
+    <tr><td><code>Stream Lookahead</code></td><td>16</td></tr>
+    <tr><td><code>Max Cache Ram MB</code></td><td>0 (unlimited)</td></tr>
+    <tr><td rowspan="3">Placement</td><td><code>Use VDB Origin</code></td><td>off</td></tr>
+    <tr><td><code>Fit Natural World Size</code></td><td>off</td></tr>
+    <tr><td><code>Auto Depth Sort</code></td><td>on</td></tr>
+    <tr><td rowspan="4">Water</td><td><code>Water Compositing</code></td><td>Depth Sorted</td></tr>
+    <tr><td><code>Underwater Material</code></td><td>optional</td></tr>
+    <tr><td><code>Composite Priority</code></td><td>0</td></tr>
+    <tr><td><code>Always Composite</code></td><td>off</td></tr>
+    <tr><td rowspan="8">Flame lights</td><td><code>Emit Flame Lights</code></td><td>off</td></tr>
+    <tr><td><code>Flame Light Count</code></td><td>2</td></tr>
+    <tr><td><code>Flame Light Threshold</code></td><td>0.25</td></tr>
+    <tr><td><code>Flame Light Intensity</code> / <code>Range</code></td><td>100 / 0.75</td></tr>
+    <tr><td><code>Flame Light Smoothing</code></td><td>0.4</td></tr>
+    <tr><td><code>Flame Light Flicker</code></td><td>0.15</td></tr>
+    <tr><td><code>Flame Light Core Radius</code></td><td>0</td></tr>
+    <tr><td><code>Flame Light Exposure</code></td><td>1</td></tr>
+    <tr><td rowspan="2">Emission</td><td><code>Override Emission Properties</code></td><td>off</td></tr>
+    <tr><td><code>Blackbody Tint</code> / <code>Blackbody Intensity</code></td><td>white / 15</td></tr>
+    <tr><td>Layout</td><td><code>Proxy Mode</code></td><td>Inherit</td></tr>
+  </table></div>
+
+  <h2 id="rf-material">VDB Volume material</h2>
+  <p>See <a href="#material">Volume Material</a> for the grouped tables with ranges and guidance.</p>
+
+  <h2 id="rf-water">Water components</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Component</th><th>Setting</th><th>Default</th></tr>
+    <tr><td rowspan="2"><code>NDVDB Water Surface</code></td><td><code>Height Offset</code></td><td>0</td></tr>
+    <tr><td><code>Split Mask Source</code></td><td>Auto (Plane Test · Water System Mask)</td></tr>
+    <tr><td><code>NDVDB Water Surface KWS</code> / <code>Crest</code></td><td>Same, as overrides for auto-detected systems</td><td></td></tr>
+  </table></div>
+
+  <h2 id="rf-timeline">Timeline clip</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Setting</th><th>Default</th></tr>
+    <tr><td><code>Loop Clip</code></td><td>off</td></tr>
+    <tr><td><code>Frame Rate Override</code></td><td>0 (player rate)</td></tr>
+  </table></div>
+
+  <h2 id="rf-menus">Menus</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Menu</th><th>Opens</th></tr>
+    <tr><td><code>Tools ▸ NDVDB ▸ Setup</code></td><td>Project setup window with one-click fixes</td></tr>
+    <tr><td><code>Tools ▸ NDVDB ▸ Converter</code></td><td>The converter</td></tr>
+    <tr><td><code>Tools ▸ NDVDB ▸ Layout Mode ▸ …</code></td><td>Session-wide proxy level</td></tr>
+    <tr><td><code>Tools ▸ NDVDB ▸ Diagnostics ▸ Play-Mode Trace</code></td><td>Per-second Console trace of playback, Timeline drive and compositor state</td></tr>
+    <tr><td><code>Tools ▸ NDVDB ▸ Documentation</code></td><td>This documentation, in your browser</td></tr>
+  </table></div>
+</article>
+
+<!-- ───────────────────────── FORMAT ───────────────────────── -->
+<article class="page" data-page="format" data-title=".ndvdb Format">
+  <div class="eyebrow">Reference</div>
+  <h1>The .ndvdb Format</h1>
+  <p class="lede">A streaming container designed for GPU upload: sparse bricks, per-brick quantization, temporal deltas, and a lossless Zstandard envelope.</p>
+
+  <h2 id="fm-layout">Layout</h2>
+  <dl class="kv">
+    <dt>Bricks</dt><dd>8³ voxels. Only occupied bricks are stored. An indirection table maps volume space to atlas slots on the GPU.</dd>
+    <dt>Quantization</dt><dd>8 bits per voxel with a per-brick min/max range. Effective precision is roughly 11 to 12 bits because each brick uses its own range.</dd>
+    <dt>Temporal coding</dt><dd>I-frames store all occupied bricks. P-frames store bricks that changed beyond the tier's tolerance. The Cinematic tier keeps the tolerance near lossless and inserts I-frames periodically for fast seeks.</dd>
+    <dt>Envelope</dt><dd>Zstandard level 1, lossless: on brick data it lands within a few percent of the slowest levels at several times the speed. Draft skips packing entirely.</dd>
+    <dt>Grids</dt><dd>Density, flame and optional temperature, each with its own brick set and role recorded in the header.</dd>
+    <dt>Metadata</dt><dd>Voxel size, world bounds and simulation origin from the VDB, frame count and frame rate hint, each grid's maximum value (the temperature ramp's default range), per-brick means used by the light cache and cheap occlusion paths.</dd>
+  </dl>
+
+  <h2 id="fm-streaming">Streaming behaviour</h2>
+  <ul>
+    <li>An IO thread reads and decodes <code>Stream Lookahead</code> frames ahead of the playhead into the frame cache.</li>
+    <li>The GPU receives only bricks that changed since the previously uploaded frame; the atlas apron (the one-voxel border that keeps trilinear filtering seamless across bricks) is refilled incrementally for touched bricks.</li>
+    <li>Seeking to a frame decodes from the nearest previous I-frame, which is why the Cinematic tier's periodic I-frames matter for scrubbing.</li>
+  </ul>
+
+  <h2 id="fm-meta">Metadata and the asset inspector</h2>
+  <p>Selecting an NDVDB Asset shows the file's metadata: path, frame count and duration, value range, compressed and uncompressed sizes with the compression ratio, average frame size, source VDB and creator. Two things are editable there. <b>Import Transform</b>: a uniform scale about the simulation origin and a translation, applied to the bounds and voxel size when the file is read, so 0.01 turns a centimetre export into metres and an offset re-centres a domain-local cache; rotation belongs on the GameObject. The frame rate: the new value is patched into the .ndvdb header in place, losslessly and instantly, with no re-conversion, and every player and Timeline clip using the asset picks it up.</p>
+
+  <h2 id="fm-compat">Compatibility</h2>
+  <p>The container carries a format version in its header, at a fixed offset that has never moved. The reader checks it before reading anything version-dependent, so assets converted with an earlier NDVDB continue to load. Re-convert with the current version when you want the newest encoding.</p>
+</article>
+
+<!-- ───────────────────────── FAQ ───────────────────────── -->
+<article class="page" data-page="faq" data-title="FAQ &amp; Limits">
+  <div class="eyebrow">Reference</div>
+  <h1>FAQ &amp; Limits</h1>
+
+  <details open><summary>How many volumes can be on screen?</summary><p>Eight compositor slots per frame, in view at once; a volume in <b>Surface Split</b> water mode uses two. Because off-screen volumes are culled from the slots, a scene can hold any number of placed effects. When more than eight slots' worth are in view, <code>Composite Priority</code> on the player decides who keeps a slot and the rest render through the per-volume path, with a one-time Console warning. The shader compiles a 4-slot variant for the common case and switches to the 8-slot variant only when more are gathered.</p></details>
+  <details><summary>Does it work with HDRP?</summary><p>An experimental HDRP subshader is included for per-volume playback. The compositor and water integration are URP-only, and URP is the supported pipeline.</p></details>
+  <details><summary>Does it work with Built-in?</summary><p>No. NDVDB requires URP.</p></details>
+  <details><summary>Can I edit or simulate volumes at runtime?</summary><p>No. Volumes are streamed effects authored in your DCC. You can move, scale, time-remap, light and composite them at runtime.</p></details>
+  <details><summary>Which water systems are detected?</summary><p>KWS Water System 2 and Crest Water 4 (URP), through reflection with no compile dependency. Any other planar water works with the generic NDVDB Water Surface component.</p></details>
+  <details><summary>Does Layout Mode affect builds or recordings?</summary><p>No. It is editor session state. Play mode, Timeline playback, Recorder and builds always render at full fidelity.</p></details>
+  <details><summary>Mobile or console?</summary><p>Not supported in this release. The compositor needs compute and a desktop-class GPU.</p></details>
+  <details><summary>Is the source included?</summary><p>Yes. Full C# and shader source, with assembly definitions for Runtime and Editor. One-time purchase, no subscription.</p></details>
+  <details><summary>Third-party components?</summary><p>The package redistributes permissively licensed open-source components (Apache-2.0 / BSD / MIT). Full notices are included in the package.</p></details>
+
+  <footer class="site">NDVDB - Cinematic OpenVDB Importer &amp; Real-Time Renderer · © N Dimensional Games LLC. Documentation for version 1.0.</footer>
+</article>
+
+</main>
+
+<!-- ═══════════════════════════ TOC ═══════════════════════════ -->
+<aside class="toc" id="toc"></aside>
+</div>
+
+<script>
+(function () {
+  const pages = [...document.querySelectorAll('.page')];
+  const navLinks = [...document.querySelectorAll('.nav a[data-page]')];
+  const order = navLinks.map(a => a.dataset.page);
+  const toc = document.getElementById('toc');
+  const main = document.getElementById('main');
+  const sidebar = document.getElementById('sidebar');
+  const results = document.getElementById('searchResults');
+  const searchBox = document.getElementById('searchBox');
+
+  /* ── media: screenshots and video with graceful placeholders ── */
+  function buildMedia(fig) {
+    const cap = fig.dataset.caption || '';
+    const img = fig.dataset.img, vid = fig.dataset.video, emb = fig.dataset.embed;
+    const placeholder = (kind, src) => {
+      const d = document.createElement('div'); d.className = 'ph';
+      d.innerHTML = `<div><div class="t">${kind} placeholder</div><code>${src}</code><div class="small">Media not included in this build.</div></div>`;
+      return d;
+    };
+    let el;
+    const yt = fig.dataset.youtube;
+    if (yt) {
+      // A page opened from disk sends no referrer, and YouTube refuses to embed without one
+      // (Error 153), so hosted videos are a poster frame that opens the video in a new tab.
+      el = document.createElement('a'); el.className = 'yt'; el.href = 'https://youtu.be/' + yt; el.target = '_blank'; el.rel = 'noopener';
+      el.title = 'Watch on YouTube';
+      const im = document.createElement('img'); im.src = fig.dataset.poster || ''; im.alt = cap; im.loading = 'lazy';
+      const pl = document.createElement('span'); pl.className = 'play'; pl.innerHTML = '<span>&#9654;</span>';
+      el.append(im, pl);
+    }
+    else if (emb) { el = document.createElement('iframe'); el.src = emb; el.allow = 'autoplay; fullscreen; picture-in-picture'; el.loading = 'lazy'; }
+    else if (vid) {
+      el = document.createElement('video'); el.src = vid; el.controls = true; el.muted = true; el.loop = true; el.playsInline = true; el.preload = 'metadata';
+      if (fig.dataset.poster) el.poster = fig.dataset.poster;
+      el.addEventListener('error', () => fig.replaceChild(placeholder('Video', vid), el), { once: true });
+    } else if (img) {
+      el = document.createElement('img'); el.src = img; el.alt = cap; el.loading = 'lazy';
+      el.addEventListener('error', () => fig.replaceChild(placeholder('Screenshot', img), el), { once: true });
+      el.addEventListener('click', () => { let u = img; if (img.startsWith('data:')) { const [h, b] = img.split(','); const mime = h.slice(5, h.indexOf(';')); const bin = atob(b); const arr = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i); u = URL.createObjectURL(new Blob([arr], { type: mime })); } window.open(u, '_blank'); });
+      el.style.cursor = 'zoom-in';
+    }
+    if (el) fig.prepend(el);
+    if (cap || emb || yt) { const fc = document.createElement('figcaption'); fc.textContent = cap;
+      const ytId = yt || (emb && (emb.match(/embed\/([\w-]+)/) || [])[1]);
+      if (ytId) { const m = [null, ytId]; { const a = document.createElement('a'); a.href = 'https://youtu.be/' + m[1]; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Watch on YouTube'; fc.append(cap ? ' · ' : '', a); } }
+      fig.appendChild(fc); }
+  }
+  document.querySelectorAll('figure.media').forEach(buildMedia);
+
+  /* ── routing ── */
+  function currentRoute() {
+    const h = location.hash.replace(/^#/, '');
+    if (!h) return { page: 'overview', anchor: null };
+    if (order.includes(h)) return { page: h, anchor: null };
+    const el = document.getElementById(h);
+    const pg = el && el.closest('.page');
+    return pg ? { page: pg.dataset.page, anchor: h } : { page: 'overview', anchor: null };
+  }
+  function buildToc(page) {
+    const hs = [...page.querySelectorAll('h2[id]')];
+    const label = h => [...h.childNodes].filter(n => !(n.nodeType === 1 && n.classList.contains('badge'))).map(n => n.textContent).join('').trim();
+    toc.innerHTML = hs.length ? '<div class="title">On this page</div>' + hs.map(h => `<a href="#${h.id}">${label(h)}</a>`).join('') : '';
+  }
+  function buildPager(page) {
+    page.querySelector('.pager')?.remove();
+    const i = order.indexOf(page.dataset.page);
+    const mk = (idx, cls, lbl) => { if (idx < 0 || idx >= order.length) return '<span style="flex:1"></span>';
+      const p = pages.find(x => x.dataset.page === order[idx]);
+      return `<a class="${cls}" href="#${order[idx]}"><span class="lbl">${lbl}</span>${p.dataset.title}</a>`; };
+    const div = document.createElement('div'); div.className = 'pager';
+    div.innerHTML = mk(i - 1, 'prev', '← Previous') + mk(i + 1, 'next', 'Next →');
+    page.appendChild(div);
+  }
+  function show() {
+    const { page: id, anchor } = currentRoute();
+    results.classList.remove('active');
+    pages.forEach(p => p.classList.toggle('active', p.dataset.page === id));
+    navLinks.forEach(a => a.classList.toggle('active', a.dataset.page === id));
+    const page = pages.find(p => p.dataset.page === id);
+    buildToc(page); buildPager(page);
+    document.title = (id === 'overview' ? 'NDVDB - Cinematic OpenVDB Importer & Real-Time Renderer' : page.dataset.title.replace(/&amp;/g, '&') + ' · NDVDB Docs');
+    sidebar.classList.remove('open');
+    // pause any playing videos on hidden pages
+    document.querySelectorAll('.page:not(.active) video').forEach(v => v.pause());
+    if (anchor) requestAnimationFrame(() => document.getElementById(anchor)?.scrollIntoView({ block: 'start' }));
+    else window.scrollTo({ top: 0 });
+  }
+  window.addEventListener('hashchange', show);
+  show();
+
+  /* ── toc highlight on scroll ── */
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) { toc.querySelectorAll('a').forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + e.target.id)); } });
+  }, { rootMargin: '-56px 0px -70% 0px' });
+  new MutationObserver(() => { document.querySelectorAll('.page.active h2[id]').forEach(h => io.observe(h)); }).observe(main, { attributes: true, subtree: true, attributeFilter: ['class'] });
+
+  /* ── search ── */
+  const index = pages.map(p => ({ id: p.dataset.page, title: p.dataset.title.replace(/&amp;/g, '&'),
+    blocks: [...p.querySelectorAll('h2, h3, p, li, td')].map(el => ({ text: el.textContent.trim(), h: el.closest('article').querySelector('h2') ? (el.tagName.startsWith('H') ? el : prevHeading(el)) : null })) }));
+  function prevHeading(el) { let n = el; while (n && n !== document.body) { let s = n.previousElementSibling; while (s) { if (/^H[23]$/.test(s.tagName)) return s; s = s.previousElementSibling; } n = n.parentElement; } return null; }
+  function esc(s) { return s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
+  function search(q) {
+    q = q.trim().toLowerCase();
+    navLinks.forEach(a => a.classList.remove('hidden-by-search'));
+    if (q.length < 2) { results.classList.remove('active'); pages.forEach(p => p.classList.toggle('active', p.dataset.page === currentRoute().page)); return; }
+    const hits = [];
+    index.forEach(pg => {
+      let n = 0;
+      pg.blocks.forEach(b => { const i = b.text.toLowerCase().indexOf(q); if (i >= 0 && n < 4 && b.text.length > 3) { n++;
+        const s = Math.max(0, i - 70), snip = b.text.slice(s, i + 90);
+        hits.push({ pg, anchor: b.h?.id || pg.id, where: pg.title + (b.h ? ' › ' + b.h.textContent : ''), snip: esc(snip).replace(new RegExp(esc(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'ig'), m => `<mark>${m}</mark>`) }); } });
+      if (!n) navLinks.find(a => a.dataset.page === pg.id)?.classList.add('hidden-by-search');
+    });
+    pages.forEach(p => p.classList.remove('active'));
+    results.classList.add('active'); toc.innerHTML = '';
+    results.innerHTML = `<div class="eyebrow">Search</div><h1>${hits.length ? hits.length + ' result' + (hits.length > 1 ? 's' : '') : 'No results'} for “${esc(q)}”</h1>` +
+      hits.map(h => `<a class="result search-hit" href="#${h.anchor}"><div class="where">${esc(h.where)}</div><div class="snip">…${h.snip}…</div></a>`).join('');
+  }
+  searchBox.addEventListener('input', e => search(e.target.value));
+  results.addEventListener('click', e => { if (e.target.closest('a')) { searchBox.value = ''; } });
+  document.addEventListener('keydown', e => { if (e.key === '/' && document.activeElement !== searchBox) { e.preventDefault(); searchBox.focus(); }
+    if (e.key === 'Escape' && document.activeElement === searchBox) { searchBox.value = ''; search(''); searchBox.blur(); } });
+
+  /* ── theme + mobile menu ── */
+  const root = document.documentElement;
+  try { const t = localStorage.getItem('ndvdb-docs-theme'); if (t) root.dataset.theme = t; } catch (_) {}
+  document.getElementById('themeBtn').addEventListener('click', () => {
+    const next = root.dataset.theme === 'light' ? '' : 'light';
+    if (next) root.dataset.theme = next; else delete root.dataset.theme;
+    try { next ? localStorage.setItem('ndvdb-docs-theme', next) : localStorage.removeItem('ndvdb-docs-theme'); } catch (_) {}
+  });
+  document.getElementById('menuBtn').addEventListener('click', () => sidebar.classList.toggle('open'));
+  document.addEventListener('click', e => { if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && e.target.id !== 'menuBtn') sidebar.classList.remove('open'); });
+})();
+</script>
+</body>
+</html>
