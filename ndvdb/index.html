@@ -285,7 +285,7 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
     </div>
   </div>
 
-  <figure class="media wide" data-youtube="uymRMpNolWY" data-poster="img/37890123c60a.jpg" data-caption="A fireball driven through a smoke plume, a launch through the waterline and a Timeline-sequenced set piece, all composited in one march."></figure>
+  <figure class="media wide" data-embed="https://www.youtube-nocookie.com/embed/uymRMpNolWY" data-caption="A fireball driven through a smoke plume, a launch through the waterline and a Timeline-sequenced set piece, all composited in one march."></figure>
 
   <h2 id="ov-what">What NDVDB is</h2>
   <p>NDVDB is a VDB importer and player. You author simulations in Houdini, EmberGen, Blender or any OpenVDB-compliant tool, convert the <code>.vdb</code> sequence once in the editor into <code>.ndvdb</code>, NDVDB's own GPU-ready streaming format, and play the result back in Unity as a streamed, real-time lit volume. There is no baking to flipbooks, no mesh proxy, and no cloud step.</p>
@@ -331,7 +331,7 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
   <h1>Getting Started</h1>
   <p class="lede">From a fresh URP project to a playing volume in five steps. The Setup window does the project plumbing for you.</p>
 
-  <figure class="media" data-youtube="8DnoTnkNoi0" data-poster="img/a424d8c0af21.jpg" data-caption="From an empty URP project to a playing volume: the Setup wizard, Convert &amp; Import, the prefab dropped into the scene, Play."></figure>
+  <figure class="media" data-embed="https://www.youtube-nocookie.com/embed/8DnoTnkNoi0" data-caption="From an empty URP project to a playing volume: the Setup wizard, Convert &amp; Import, the prefab dropped into the scene, Play."></figure>
 
   <ol class="steps">
     <li><b>Import the package</b><p>Import NDVDB into a Unity 6000.x project that uses URP. The package contains the runtime, editor tooling, shaders, and this documentation under <code>Assets/NDimensionalGames/VDBImporter</code>.</p></li>
@@ -602,7 +602,7 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
   <h1>Scene Compositor</h1>
   <p class="lede">The <b>NDVDB Composite</b> renderer feature raymarches every visible volume jointly in a single pass, then resolves, upsamples and composites the result with correct depth so transparents and water sort against the smoke.</p>
 
-  <figure class="media" data-youtube="j98-FwWmFgk" data-poster="img/e2bf873b3f8d.jpg" data-caption="Two volumes interpenetrating. First with the joint march, where both volumes interleave per pixel, then with per-object transparency sorting, where the overlap pops as the sort order flips."></figure>
+  <figure class="media" data-embed="https://www.youtube-nocookie.com/embed/j98-FwWmFgk" data-caption="Two volumes interpenetrating. First with the joint march, where both volumes interleave per pixel, then with per-object transparency sorting, where the overlap pops as the sort order flips."></figure>
 
   <h2 id="cp-why">Why a joint march</h2>
   <p>Drawing each volume as its own transparent object breaks the moment two effects overlap, because a whole object must be either in front of or behind another. The compositor instead gathers up to eight visible volumes per frame and marches them together, so at every sample along a ray it knows the density of all of them. Overlap, interpenetration and cross-volume shadows fall out naturally. Volumes beyond the eight slots render through the per-volume fallback path, with a one-time warning in the Console.</p>
@@ -675,7 +675,7 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
   <h1>Lighting &amp; Fire</h1>
   <p class="lede">How the smoke is lit, how it shadows itself and the scene, how the flame grid glows, and how fire can light the world around it.</p>
 
-  <figure class="media" data-youtube="qW3RCQWpBi8" data-poster="img/d1885b267ed8.jpg" data-caption="One plume under the main light with self-shadow, scene shadows toggled in and out, point lights, flame emission and flame lights."></figure>
+  <figure class="media" data-embed="https://www.youtube-nocookie.com/embed/qW3RCQWpBi8" data-caption="One plume under the main light with self-shadow, scene shadows toggled in and out, point lights, flame emission and flame lights."></figure>
 
   <h2 id="lt-main">Main light and self-shadow</h2>
   <p>The directional main light drives single scattering with a Henyey-Greenstein phase (see <code>Anisotropy</code>). Self-shadowing marches from each sample toward the light through the volume's own density, using <code>Shadow Steps</code>, <code>Shadow Step Size</code> and <code>Shadow Density Scale</code> from the material.</p>
@@ -757,7 +757,7 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
   <h1>Water Integration</h1>
   <p class="lede">Explosions at the waterline are the shots everyone remembers. NDVDB splits the march at the rendered water surface so smoke renders correctly above, below, and through it, from either side of the surface.</p>
 
-  <figure class="media" data-youtube="dfDhj20yAhY" data-poster="img/414fd896d7ef.jpg" data-caption="Underwater missile launch through the surface with the camera half submerged: Surface Split with the wave-exact clip, each half composited on its own side."></figure>
+  <figure class="media" data-embed="https://www.youtube-nocookie.com/embed/dfDhj20yAhY" data-caption="Underwater missile launch through the surface with the camera half submerged: Surface Split with the wave-exact clip, each half composited on its own side."></figure>
 
   <h2 id="wt-modes">Water Compositing modes</h2>
   <p>Set per effect on the NDVDB Player.</p>
@@ -859,7 +859,7 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
   <h1>Layout Mode</h1>
   <p class="lede">Block a VDB-heavy cinematic with cheap proxies, then get full fidelity the moment anything plays. Layout Mode never touches Play mode, recording or builds.</p>
 
-  <figure class="media" data-youtube="rm57IUslr44" data-poster="img/ddf36377cbdc.jpg" data-caption="Layout Mode: switching proxy levels from the Scene view overlay while placing six effects, then Play for full fidelity."></figure>
+  <figure class="media" data-embed="https://www.youtube-nocookie.com/embed/rm57IUslr44" data-caption="Layout Mode: switching proxy levels from the Scene view overlay while placing six effects, then Play for full fidelity."></figure>
 
   <h2 id="lm-levels">Levels</h2>
   <div class="tablewrap"><table>
@@ -981,7 +981,7 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
 <article class="page" data-page="troubleshooting" data-title="Troubleshooting">
   <div class="eyebrow">Ship it</div>
   <h1>Troubleshooting</h1>
-  <p class="lede">Start with <code>Tools ▸ NDVDB ▸ Setup</code>. It catches the three causes of "nothing renders" and fixes them with one click.</p>
+  <p class="lede">Start with <code>Tools ▸ NDVDB ▸ Setup</code>. It catches the three causes of "nothing renders" and fixes them with one click. If a problem survives this page, reach us at <a href="https://ndimensionalgames.com/customer-support/" target="_blank" rel="noopener">ndimensionalgames.com/customer-support</a> with the Console log, your Unity and URP versions, and the exporter the VDB came from.</p>
 
   <details open><summary>Nothing renders, or the volume is a flat box</summary>
     <ul>
@@ -1209,9 +1209,10 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
   <details><summary>Does Layout Mode affect builds or recordings?</summary><p>No. It is editor session state. Play mode, Timeline playback, Recorder and builds always render at full fidelity.</p></details>
   <details><summary>Mobile or console?</summary><p>Not supported in this release. The compositor needs compute and a desktop-class GPU.</p></details>
   <details><summary>Is the source included?</summary><p>Yes. Full C# and shader source, with assembly definitions for Runtime and Editor. One-time purchase, no subscription.</p></details>
+  <details><summary>Where do I get support?</summary><p>At <a href="https://ndimensionalgames.com/customer-support/" target="_blank" rel="noopener">ndimensionalgames.com/customer-support</a>. Include the Console log, your Unity and URP versions, the water system if one is involved, and where the VDB was exported from. For conversion problems the Console's <code>Metadata scan</code> and <code>Profile</code> lines from the converter tell most of the story.</p></details>
   <details><summary>Third-party components?</summary><p>The package redistributes permissively licensed open-source components (Apache-2.0 / BSD / MIT). Full notices are included in the package.</p></details>
 
-  <footer class="site">NDVDB - Cinematic OpenVDB Importer &amp; Real-Time Renderer · © N Dimensional Games LLC. Documentation for version 1.0.</footer>
+  <footer class="site">NDVDB - Cinematic OpenVDB Importer &amp; Real-Time Renderer · © N Dimensional Games LLC. Documentation for version 1.0. · <a href="https://ndimensionalgames.com/customer-support/" target="_blank" rel="noopener">Support</a></footer>
 </article>
 
 </main>
@@ -1355,6 +1356,9 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
   document.getElementById('menuBtn').addEventListener('click', () => sidebar.classList.toggle('open'));
   document.addEventListener('click', e => { if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && e.target.id !== 'menuBtn') sidebar.classList.remove('open'); });
 })();
+</script>
+<script>/* added by tools/build-docs.mjs */
+document.querySelectorAll('figure.media iframe').forEach(f => { f.title = f.closest('figure').dataset.caption || 'Video'; f.allowFullscreen = true; });
 </script>
 </body>
 </html>

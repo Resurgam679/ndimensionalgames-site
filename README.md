@@ -22,7 +22,7 @@ git commit -m "Update NDVDB docs"
 git push
 ```
 
-The script reads the Unity copy (path at the top of `tools/build-docs.mjs`, or pass one as an argument), moves its embedded images into `ndvdb/img/`, and adds the site navigation. The Unity copy is not modified. GitHub Pages redeploys within a minute or two of the push.
+The script reads the Unity copy (path at the top of `tools/build-docs.mjs`, or pass one as an argument), turns its video posters into real YouTube embeds, moves its embedded images into `ndvdb/img/`, and adds the site navigation. The Unity copy is not modified, so it keeps its offline-friendly posters. GitHub Pages redeploys within a minute or two of the push.
 
 ## Update logos or marketing images
 
