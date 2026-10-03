@@ -27,6 +27,7 @@
     <span class="spacer"></span>
     <nav class="nav" aria-label="Main">
       <a href="ndvdb/">NDVDB</a>
+      <a href="#roadmap">Roadmap</a>
       <a href="customer-support/">Support</a>
     </nav>
     <button class="iconbtn" id="themeBtn" type="button" title="Toggle light / dark" aria-label="Toggle light or dark theme">◐</button>
@@ -61,7 +62,7 @@
           <h3>NDVDB</h3>
           <p class="tagline">Cinematic OpenVDB importer &amp; real-time renderer</p>
           <p class="muted">Import and play your own OpenVDB sequences as real-time lit volumetrics: smoke, fire and explosions that composite correctly with each other, your scene and your water.</p>
-          <div class="pills"><span class="pill">Unity 6 · URP 17+</span><span class="pill">Windows · Linux · macOS</span><span class="pill">Full C# &amp; shader source</span></div>
+          <div class="pills"><span class="pill">Unity 6 · URP 17+</span><span class="pill">Plays on Windows · Linux · macOS</span><span class="pill">Full C# &amp; shader source</span></div>
           <div class="ctas">
             <a class="btn primary" href="ndvdb/">Documentation →</a>
             <a class="btn" href="ndvdb/#getting-started">Getting started</a>
@@ -76,6 +77,28 @@
           <li><span class="ico" aria-hidden="true">⏱</span><span><b>Timeline.</b> A native track for sequencing multi-effect shots.</span></li>
         </ul>
       </article>
+    </div>
+  </section>
+
+  <section class="section" id="roadmap">
+    <div class="wrap">
+      <h2 class="section-title">Roadmap</h2>
+      <p class="roadmap-intro">What is coming to NDVDB after 1.0, in priority order. Dates are announced once a feature has passed testing.</p>
+      <ul class="roadmap">
+        <li>
+          <span class="status-tag dev">In development</span>
+          <h3>Converting on macOS and Linux</h3>
+          <p>Converted assets already play on Windows, Linux and macOS, but today the converter itself runs in the Unity Editor on Windows x64. The OpenVDB reader is being built natively for macOS (Apple Silicon and Intel, signed and notarized) and Linux x86_64, so a whole team can import sequences on the machines they already use.</p>
+          <p>Every build is checked against the Windows converter: the same sequence has to produce the same data on all three.</p>
+        </li>
+        <li>
+          <span class="status-tag planned">Planned</span>
+          <h3>Effect count that scales with your GPU</h3>
+          <p>The compositor marches up to eight volumes jointly in view. Past that, extra effects still render, but without joint overlap or cross-volume lighting. That ceiling comes from the engine's per-shader texture limit, not from your graphics card.</p>
+          <p>A shared brick atlas removes it, turning the number of jointly composited effects into a quality setting picked from your graphics memory, with an Auto option.</p>
+        </li>
+      </ul>
+      <p class="roadmap-note">Missing something? <a href="customer-support/">Tell us what your shots need →</a></p>
     </div>
   </section>
 
