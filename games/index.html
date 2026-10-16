@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Browser Games — N Dimensional Games Arcade</title>
+<meta name="description" content="Three browser games from N Dimensional Games in one arcade cabinet: Jet Slalom, Area Flat 3 and ADRIFT. Nothing to install.">
+<link rel="canonical" href="https://ndimensionalgames.com/games/">
+<link rel="icon" href="../assets/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="../assets/favicon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="N Dimensional Games">
+<meta property="og:title" content="Browser Games · N Dimensional Games Arcade">
+<meta property="og:description" content="Jet Slalom, Area Flat 3 and ADRIFT — three games, one cabinet, nothing to install.">
+<meta property="og:url" content="https://ndimensionalgames.com/games/">
+<meta property="og:image" content="https://ndimensionalgames.com/assets/og-adrift.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+:root{
+  --bg:#08090f; --bg2:#0e1220; --ink:#e8f4ff; --dim:#7d90ad;
+  --neon:#35e8e8; --neon2:#ff42d2; --gold:#ffd040; --line:#1c2540;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+  font-family:"Segoe UI",system-ui,-apple-system,sans-serif;overflow:hidden;}
+body{display:flex;flex-direction:column;}
+
+/* ---------------- animated backdrop ---------------- */
+#bg{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(1200px 700px at 50% -10%, #1a2b52 0%, transparent 60%),
+    radial-gradient(900px 600px at 90% 110%, #2a1140 0%, transparent 60%),
+    var(--bg);}
+#bg::after{content:"";position:absolute;inset:0;
+  background:repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 1px, transparent 1px 3px);
+  opacity:.55;}
+#grid{position:fixed;left:0;right:0;bottom:0;height:42%;z-index:0;pointer-events:none;
+  background-image:
+    linear-gradient(rgba(53,232,232,.16) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(53,232,232,.10) 1px, transparent 1px);
+  background-size:100% 34px, 44px 100%;
+  transform:perspective(300px) rotateX(66deg);transform-origin:bottom center;
+  mask-image:linear-gradient(to top, #000 10%, transparent 85%);
+  -webkit-mask-image:linear-gradient(to top, #000 10%, transparent 85%);
+  animation:scroll 2.6s linear infinite;opacity:.6;}
+@keyframes scroll{ from{background-position:0 0,0 0;} to{background-position:0 34px,0 0;} }
+
+/* ---------------- top bar (play mode) ---------------- */
+#bar{display:none;align-items:center;gap:10px;padding:0 10px;height:40px;overflow-x:auto;
+  background:linear-gradient(#141a2e,#0c1120);border-bottom:1px solid var(--line);
+  position:relative;z-index:5;flex:0 0 40px;}
+#bar.on{display:flex;}
+#bar .title{font-weight:700;letter-spacing:.14em;font-size:12px;color:var(--neon);
+  text-transform:uppercase;margin-right:auto;white-space:nowrap;}
+#stage{flex:1;position:relative;z-index:2;display:none;background:#000;overflow:hidden;}
+#stage.on{display:block;}
+#frame{width:100%;height:100%;border:0;display:block;background:#07080c;}
+
+/* ---------------- menu ---------------- */
+#menu{flex:1;position:relative;z-index:2;overflow-y:auto;padding:26px 20px 34px;
+  display:flex;flex-direction:column;align-items:center;}
+#menu.off{display:none;}
+h1{margin:6px 0 2px;font-size:clamp(26px,5.4vw,46px);letter-spacing:.16em;font-weight:800;
+  text-transform:uppercase;text-align:center;
+  background:linear-gradient(#ffffff,#7ee9ff 45%,#35e8e8 55%,#2a8fd8);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 0 26px rgba(53,232,232,.35);}
+.sub{color:var(--gold);letter-spacing:.32em;font-size:11px;text-transform:uppercase;
+  margin-bottom:20px;text-align:center;}
+
+.cards{display:flex;flex-wrap:wrap;gap:18px;justify-content:center;width:100%;max-width:900px;}
+.card{width:396px;max-width:100%;background:linear-gradient(#131a2e,#0b0f1c);
+  border:1px solid var(--line);border-radius:12px;overflow:hidden;cursor:pointer;
+  transition:transform .14s ease, border-color .14s ease, box-shadow .14s ease;
+  text-align:left;padding:0;color:inherit;font:inherit;display:block;}
+.card:hover,.card:focus-visible{transform:translateY(-4px);border-color:var(--neon);
+  box-shadow:0 10px 34px rgba(53,232,232,.18);outline:none;}
+.card .thumb{display:block;width:100%;height:auto;border-bottom:1px solid var(--line);
+  image-rendering:pixelated;}
+.card img.thumb{image-rendering:auto;aspect-ratio:320/150;object-fit:cover;}
+.card.new{border-color:#3a4f6e;text-decoration:none;}
+.card.new:hover,.card.new:focus-visible{text-decoration:none;}
+.card.new h2,.card.new p,.card.new .meta{text-decoration:none;}
+.card .tag{display:inline-block;font-size:9.5px;letter-spacing:.2em;color:var(--gold);border:1px solid rgba(255,208,64,.4);
+  border-radius:4px;padding:1px 6px 0;margin-left:8px;vertical-align:2px;text-transform:uppercase;}
+#home{position:fixed;left:14px;top:12px;z-index:6;font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--dim);text-decoration:none;display:flex;align-items:center;gap:8px;}
+#home img{width:22px;height:22px;opacity:.85;}
+#home:hover{color:var(--neon);}
+#menu{padding-top:44px;}
+footer a{color:var(--dim);}
+.card .body{padding:13px 15px 15px;}
+.card h2{margin:0 0 5px;font-size:17px;letter-spacing:.08em;text-transform:uppercase;}
+.card p{margin:0 0 10px;font-size:12.5px;line-height:1.5;color:var(--dim);}
+.meta{display:flex;justify-content:space-between;align-items:center;font-size:11px;
+  color:var(--dim);border-top:1px dashed var(--line);padding-top:9px;}
+.meta b{color:var(--gold);font-variant-numeric:tabular-nums;}
+.play{color:var(--neon);font-weight:700;letter-spacing:.1em;}
+
+/* ---------------- settings ---------------- */
+.panel{margin-top:26px;width:100%;max-width:900px;background:rgba(11,15,28,.72);
+  border:1px solid var(--line);border-radius:12px;padding:14px 16px;}
+.panel h3{margin:0 0 12px;font-size:11px;letter-spacing:.28em;color:var(--dim);
+  text-transform:uppercase;}
+.rows{display:flex;flex-wrap:wrap;gap:16px 26px;align-items:center;}
+.row{display:flex;align-items:center;gap:9px;}
+.row .lab{font-size:11px;letter-spacing:.16em;color:var(--dim);text-transform:uppercase;}
+.seg{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;}
+.seg button{appearance:none;border:0;background:#0d1424;color:var(--dim);
+  font:inherit;font-size:12px;padding:6px 13px;cursor:pointer;letter-spacing:.04em;
+  border-right:1px solid var(--line);transition:background .12s,color .12s;}
+.seg button:last-child{border-right:0;}
+.seg button:hover{background:#152040;color:var(--ink);}
+.seg button.sel{background:var(--neon);color:#05202a;font-weight:700;}
+.btn{appearance:none;border:1px solid var(--line);background:#0d1424;color:var(--ink);
+  font:inherit;font-size:12px;padding:7px 14px;border-radius:7px;cursor:pointer;
+  letter-spacing:.06em;transition:background .12s,border-color .12s;}
+.btn:hover{background:#152040;border-color:var(--neon);}
+.btn.ghost{color:var(--dim);}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#2a3a5e;
+  margin-left:6px;vertical-align:middle;transition:background .2s,box-shadow .2s;}
+.dot.live{background:#35e8e8;box-shadow:0 0 7px #35e8e8;}
+.note{font-size:10px;letter-spacing:.12em;color:#495a78;text-transform:uppercase;}
+.hint{margin-top:11px;font-size:11px;color:var(--dim);line-height:1.6;}
+.hint code{color:var(--neon);background:#0d1424;padding:1px 5px;border-radius:4px;
+  font-size:10.5px;}
+#bar .seg button{padding:4px 10px;font-size:11px;}
+#bar .row .lab{font-size:10px;}
+footer{margin-top:20px;font-size:10.5px;color:#495a78;letter-spacing:.1em;text-align:center;}
+</style>
+</head>
+<body>
+<div id="bg"></div><div id="grid"></div>
+<a id="home" href="../"><img src="../assets/ndg-mark.png" alt="">N Dimensional Games</a>
+
+<!-- ============================ play-mode bar ============================ -->
+<div id="bar">
+  <button class="btn" id="back">◀ Arcade</button>
+  <span class="title" id="nowPlaying">—</span>
+  <div class="row"><span class="lab">Render</span>
+    <div class="seg" data-group="style">
+      <button data-style="sharp">Crisp</button>
+      <button data-style="chunky">Crunchy</button>
+    </div>
+  </div>
+  <div class="row"><span class="lab">Scale</span>
+    <div class="seg" data-group="size">
+      <button data-size="fit">Fit</button>
+      <button data-size="1">1×</button>
+      <button data-size="2">2×</button>
+      <button data-size="3">3×</button>
+      <button data-size="4">4×</button>
+      <button data-size="6">6×</button>
+    </div>
+  </div>
+  <button class="btn" id="sndBar">Sound: Off</button>
+  <button class="btn" id="padBar">Pad: On<span class="dot" id="padDotBar"></span></button>
+  <button class="btn" id="fsBar">⛶ Fullscreen</button>
+</div>
+
+<!-- ================================ stage ================================ -->
+<div id="stage"><iframe id="frame" title="game"></iframe></div>
+
+<!-- ================================ menu ================================= -->
+<div id="menu">
+  <h1>Arcade</h1>
+  <div class="sub">two rescued classics · one new ship · one cabinet</div>
+
+  <div class="cards">
+    <button class="card" data-game="jet-slalom.html" data-name="Jet Slalom"
+            data-hs="jshs" data-hs-relaxed="jshs_relaxed">
+      <svg class="thumb" viewBox="0 0 320 150" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="320" height="150" fill="#0f9aa0"/>
+        <rect x="4" y="12" width="312" height="126" fill="#f0aebe"/>
+        <rect x="4" y="12" width="312" height="52" fill="#cfe9f5"/>
+        <rect x="4" y="64" width="312" height="74" fill="#8ed08a"/>
+        <circle cx="238" cy="34" r="8" fill="#fffbe8" opacity=".9"/>
+        <g>
+          <polygon points="34,64 22,64 28,40" fill="#1550e2"/><polygon points="34,64 28,40 40,63" fill="#0d38a0"/>
+          <polygon points="72,64 62,64 67,46" fill="#f2a41e"/><polygon points="72,64 67,46 77,63" fill="#b87814"/>
+          <polygon points="112,64 96,64 104,30" fill="#e42222"/><polygon points="112,64 104,30 126,63" fill="#a01818"/>
+          <polygon points="160,64 150,64 155,44" fill="#ff42d2"/><polygon points="160,64 155,44 168,63" fill="#b02c92"/>
+          <polygon points="205,64 191,64 198,34" fill="#1550e2"/><polygon points="205,64 198,34 216,63" fill="#0d38a0"/>
+          <polygon points="258,64 246,64 252,38" fill="#ff42d2"/><polygon points="258,64 252,38 269,63" fill="#b02c92"/>
+          <polygon points="298,64 288,64 293,48" fill="#f2a41e"/><polygon points="298,64 293,48 305,63" fill="#b87814"/>
+        </g>
+        <g transform="translate(160,116) scale(1.5)">
+          <polygon points="-34,4 -9,-3 9,-3 34,4 28,9 -28,9" fill="#101840"/>
+          <polygon points="-7,-9 7,-9 10,7 -10,7" fill="#1a2358"/>
+          <ellipse cx="0" cy="-2" rx="6" ry="5" fill="#2a66e8"/>
+          <circle cx="-20" cy="4.5" r="4" fill="#f2f2f2"/><circle cx="-20" cy="4.5" r="2" fill="#d02222"/>
+          <circle cx="20" cy="4.5" r="4" fill="#f2f2f2"/><circle cx="20" cy="4.5" r="2" fill="#d02222"/>
+        </g>
+      </svg>
+      <div class="body">
+        <h2>Jet Slalom</h2>
+        <p>Skim the deck through procedurally grown pyramid fields. Bulkheads,
+           chicanes, spire storms and long snaking canyon runs — grown fresh every
+           time and guaranteed to have a way through. Graze the rock for bonus.</p>
+        <div class="meta"><span>Hi-score <b class="hs">—</b></span><span class="play">PLAY ▶</span></div>
+      </div>
+    </button>
+
+    <button class="card" data-game="area-flat-3.html" data-touch="area-flat-3-mobile.html"
+            data-name="Area Flat 3" data-hs="af3hs">
+      <svg class="thumb" viewBox="0 0 320 150" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="320" height="150" fill="#218a21"/>
+        <g fill="#249324">
+          <rect x="0" y="0" width="25" height="25"/><rect x="50" y="25" width="25" height="25"/>
+          <rect x="100" y="0" width="25" height="25"/><rect x="150" y="50" width="25" height="25"/>
+          <rect x="25" y="100" width="25" height="25"/><rect x="200" y="75" width="25" height="25"/>
+        </g>
+        <g fill="#8a6d3b">
+          <rect x="0" y="50" width="25" height="25"/><rect x="25" y="50" width="25" height="25"/>
+          <rect x="0" y="75" width="25" height="25"/><rect x="175" y="0" width="25" height="25"/>
+          <rect x="200" y="0" width="25" height="25"/><rect x="200" y="25" width="25" height="25"/>
+        </g>
+        <g fill="#1533cc">
+          <rect x="75" y="100" width="25" height="25"/><rect x="100" y="100" width="25" height="25"/>
+          <rect x="75" y="125" width="25" height="25"/>
+        </g>
+        <rect x="250" y="0" width="70" height="150" fill="#2929c8"/>
+        <rect x="256" y="10" width="58" height="7" fill="#35e8e8"/>
+        <rect x="256" y="26" width="42" height="7" fill="#ffffff"/>
+        <rect x="256" y="48" width="40" height="7" fill="#35e8e8"/>
+        <rect x="256" y="64" width="52" height="7" fill="#ffffff"/>
+        <rect x="256" y="92" width="56" height="9" fill="#ee22cc"/>
+        <g transform="translate(150,44)">
+          <polygon points="-52,-30 -6,-30 -30,20" fill="#35d8e8"/>
+          <polygon points="52,-30 6,-30 30,20" fill="#0899aa"/>
+          <polygon points="-34,-30 34,-30 0,40" fill="#00cc44"/>
+          <polygon points="-26,-30 26,-30 18,-8 -18,-8" fill="#111111"/>
+          <polygon points="-13,-26 13,-26 0,-10" fill="#ee1111"/>
+        </g>
+        <g transform="translate(120,116)">
+          <polygon points="0,-17 7,0 -7,0" fill="#ffb2a0"/>
+          <polygon points="-16,12 -3,-4 -3,12" fill="#ffb2a0"/>
+          <polygon points="16,12 3,-4 3,12" fill="#ffb2a0"/>
+          <polygon points="-7,0 7,0 9,12 -9,12" fill="#ffb2a0"/>
+          <polygon points="0,-7 5,6 -5,6" fill="#35d8e8"/>
+        </g>
+        <rect x="112" y="60" width="4" height="44" fill="#ffee00"/>
+      </svg>
+      <div class="body">
+        <h2>Area Flat 3</h2>
+        <p>Vertical shooter across eight shifting landscapes — plains, coastline,
+           ice shelf, open ocean, caldera. Feed it power-ups and both your weapons
+           grow into something else entirely. Five very different bosses wait at
+           the ends of the areas.</p>
+        <div class="meta"><span>Hi-score <b class="hs">—</b></span><span class="play">PLAY ▶</span></div>
+      </div>
+    </button>
+
+    <a class="card new" href="../adrift/" data-direct="1" data-name="ADRIFT">
+      <img class="thumb" src="../assets/adrift-cover.webp" width="320" height="150" alt="ADRIFT: a crewmember's flashlight finds the dead in a dark corridor">
+      <div class="body">
+        <h2>ADRIFT<span class="tag">new · prototype</span></h2>
+        <p>A space-horror roguelite lit by one failing flashlight. Wake from cryo
+           aboard a ship that rearranges itself every sleep; find the power cells,
+           reach the pod, and mind what the light lands on. Solo, couch co-op on a
+           pad, or online by room code. Opens in its own screen.</p>
+        <div class="meta"><span>Prototype <b>v16.49</b></span><span class="play">PLAY ▶</span></div>
+      </div>
+    </a>
+  </div>
+
+  <div class="panel">
+    <h3>Display &amp; Input</h3>
+    <div class="rows">
+      <div class="row"><span class="lab">Render</span>
+        <div class="seg" data-group="style">
+          <button data-style="sharp">Crisp</button>
+          <button data-style="chunky">Crunchy</button>
+        </div>
+      </div>
+      <div class="row"><span class="lab">Scale</span>
+        <div class="seg" data-group="size">
+          <button data-size="fit">Fit</button>
+          <button data-size="1">1×</button>
+          <button data-size="2">2×</button>
+          <button data-size="3">3×</button>
+          <button data-size="4">4×</button>
+          <button data-size="6">6×</button>
+        </div>
+      </div>
+      <div class="row"><span class="lab">Sound</span>
+        <div class="seg" data-group="sound">
+          <button data-sound="on">On</button>
+          <button data-sound="off">Off</button>
+        </div>
+      </div>
+      <div class="row"><span class="lab">Controls</span>
+        <div class="seg" data-group="touch">
+          <button data-touch="off">Desktop</button>
+          <button data-touch="on">Touch</button>
+        </div>
+      </div>
+      <div class="row"><span class="lab">Gamepad</span>
+        <div class="seg" data-group="pad">
+          <button data-pad="on">On</button>
+          <button data-pad="off">Off</button>
+        </div>
+        <span class="dot" id="padDot" title="lights up when a pad is live"></span>
+      </div>
+      <div class="row"><span class="lab">Pace</span>
+        <div class="seg" data-group="pace">
+          <button data-pace="classic">Classic</button>
+          <button data-pace="relaxed">Relaxed</button>
+        </div>
+        <span class="note">Jet Slalom</span>
+      </div>
+      <div class="row"><button class="btn" id="fsMenu">⛶ Fullscreen</button></div>
+      <div class="row"><button class="btn ghost" id="wipe">Reset hi-scores</button></div>
+    </div>
+    <p class="hint">
+      <b style="color:var(--ink)">Crisp</b> re-renders the whole game at your display's
+      real pixel density — clean vector edges, no stair-stepping.
+      <b style="color:var(--ink)">Crunchy</b> draws at the original internal resolution
+      and blows it up with nearest-neighbour, keeping the fat authentic pixels.
+      Settings apply live, mid-run — sound included, and pressing <code>S</code>
+      inside a game keeps this in sync. <code>Esc</code> returns here.
+      <b style="color:var(--ink)">Touch</b> launches the thumb-controlled build of
+      Area Flat 3 — drag to fly, the gun fires itself, laser and bomb under your right
+      thumb. Jet Slalom takes touch in its normal build: put a thumb down anywhere and
+      pull, like a stick.
+      <b style="color:var(--ink)">Gamepad</b> works in both; the dot lights when one is
+      live. Browsers only hand a pad over after a button press inside the game, so it
+      wakes on your first input.
+      <b style="color:var(--ink)">ADRIFT</b> carries its own settings, controls and
+      co-op lobby, so it opens full-screen in its own page rather than in the cabinet;
+      <code>Esc</code> pauses it, and the browser's back button returns here.
+    </p>
+  </div>
+
+  <footer>Jet Slalom &amp; Area Flat 3: originals by MR-C, rebuilt for the modern browser ·
+    ADRIFT: created with Claude Code, design by James Carroll &amp; Michael Arens ·
+    <a href="../">ndimensionalgames.com</a></footer>
+</div>
+
+<script>
+"use strict";
+const $  = s=>document.querySelector(s);
+const $$ = s=>Array.from(document.querySelectorAll(s));
+function ls(k,d){ try{ const v=localStorage.getItem(k); return v===null?d:v; }catch(e){ return d; } }
+function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+
+let SIZE  = ls('fgr_size','fit');
+let STYLE = ls('fgr_style','sharp');
+let SOUND = ls('fgr_sound','off') === 'on';
+// default to touch on a coarse pointer, but never override an explicit choice
+let PADON = ls('fgr_pad','on') === 'on';
+/* Jet Slalom's pace. Relaxed is not an easy mode — same world, same obstacles,
+   same difficulty curve, just arriving slower for anyone who wants more time to
+   read it. Own setting, own hi-score board. */
+let RELAXED = ls('fgr_pace','classic') === 'relaxed';
+let padLive = false;
+let TOUCH = ls('fgr_touch', null) !== null
+  ? ls('fgr_touch','off') === 'on'
+  : (window.matchMedia && matchMedia('(pointer: coarse)').matches);
+let current = null;
+
+/* ---- settings UI (mirrored between menu panel and play-mode bar) ---- */
+function paintSettings(){
+  $$('.seg[data-group="style"] button').forEach(b=>b.classList.toggle('sel', b.dataset.style===STYLE));
+  $$('.seg[data-group="size"] button').forEach(b=>b.classList.toggle('sel', b.dataset.size===SIZE));
+  $$('.seg[data-group="sound"] button').forEach(b=>b.classList.toggle('sel', (b.dataset.sound==='on')===SOUND));
+  $$('.seg[data-group="touch"] button').forEach(b=>b.classList.toggle('sel', (b.dataset.touch==='on')===TOUCH));
+  $('#sndBar').textContent = 'Sound: ' + (SOUND ? 'On' : 'Off');
+  $$('.seg[data-group="pad"] button').forEach(b=>b.classList.toggle('sel', (b.dataset.pad==='on')===PADON));
+  $('#padBar').firstChild.nodeValue = 'Pad: ' + (PADON ? 'On' : 'Off');
+  $('#padDot').classList.toggle('live', PADON && padLive);
+  $('#padDotBar').classList.toggle('live', PADON && padLive);
+  $$('.seg[data-group="pace"] button').forEach(b=>b.classList.toggle('sel', (b.dataset.pace==='relaxed')===RELAXED));
+}
+function post(msg){
+  const f = $('#frame');
+  if(current && f.contentWindow){ try{ f.contentWindow.postMessage(msg, '*'); }catch(e){} }
+}
+function pushDisplay(){ post({t:'display', size:SIZE, style:STYLE}); }
+function pushSound(){ post({t:'sound', on:SOUND}); }
+function pushPad(){ post({t:'padset', on:PADON}); }
+function pushPace(){ post({t:'pace', relaxed:RELAXED}); }
+function setPace(relaxed){
+  RELAXED = !!relaxed; lsSet('fgr_pace', RELAXED?'relaxed':'classic');
+  paintSettings(); pushPace(); paintScores();   // each pace has its own board
+}
+function setPad(on){
+  PADON = !!on; lsSet('fgr_pad', PADON?'on':'off');
+  if(!PADON) padLive = false;
+  paintSettings(); pushPad();
+}
+function setSound(on){
+  SOUND = !!on; lsSet('fgr_sound', SOUND?'on':'off');
+  paintSettings(); pushSound();
+}
+$$('.seg button').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    if(b.dataset.style){ STYLE=b.dataset.style; lsSet('fgr_style',STYLE); paintSettings(); pushDisplay(); }
+    if(b.dataset.size){  SIZE =b.dataset.size;  lsSet('fgr_size', SIZE ); paintSettings(); pushDisplay(); }
+    if(b.dataset.sound){ setSound(b.dataset.sound==='on'); }
+    if(b.dataset.touch){ TOUCH = b.dataset.touch==='on'; lsSet('fgr_touch', TOUCH?'on':'off'); paintSettings(); }
+    if(b.dataset.pad){ setPad(b.dataset.pad==='on'); }
+    if(b.dataset.pace){ setPace(b.dataset.pace==='relaxed'); }
+  });
+});
+$('#sndBar').addEventListener('click', ()=> setSound(!SOUND));
+$('#padBar').addEventListener('click', ()=> setPad(!PADON));
+
+/* ---- hi-scores on the cards ---- */
+function paintScores(){
+  $$('.card').forEach(c=>{
+    if(!c.dataset.hs) return;
+    // Jet Slalom keeps a separate board per pace, so a relaxed run never has to
+    // measure itself against a classic one
+    const key = (RELAXED && c.dataset.hsRelaxed) ? c.dataset.hsRelaxed : c.dataset.hs;
+    const v = parseInt(ls(key,'0'),10)||0;
+    c.querySelector('.hs').textContent = v ? v.toLocaleString() : '—';
+  });
+}
+
+/* ---- launch / return ---- */
+/* Android is the reason this is more than one line. Chrome on Android will not
+   load a file:// document into a subframe, and a file opened from Downloads
+   arrives as a content:// URI whose sibling files aren't reachable at all — so
+   the arcade rendered perfectly and then every game came up blank or "not
+   found". Each game posts a hello the moment it boots; if no hello arrives we
+   stop trying to frame it and navigate the whole tab there instead, which is
+   the one thing Android will do. Armed only off http(s), where framing is
+   known good — a real web server never sees this path. */
+let helloT = null;
+const FRAMES_OK = location.protocol === 'http:' || location.protocol === 'https:';
+function launch(src, name){
+  current = src;
+  const q = '?size=' + encodeURIComponent(SIZE) + '&style=' + encodeURIComponent(STYLE)
+          + '&sound=' + (SOUND ? 'on' : 'off')
+          + '&pad='   + (PADON ? 'on' : 'off')
+          + '&pace='  + (RELAXED ? 'relaxed' : 'classic');
+  // absolute against THIS document, so an odd base URI can't mangle it
+  let url = src + q;
+  try{ url = new URL(src + q, document.baseURI).href; }catch(e){}
+  clearTimeout(helloT); helloT = null;
+  if(!FRAMES_OK) helloT = setTimeout(()=>{
+    if(current === src){ helloT = null; location.href = url; }
+  }, 2500);
+  $('#frame').src = url;
+  $('#nowPlaying').textContent = name;
+  $('#menu').classList.add('off');
+  $('#stage').classList.add('on');
+  $('#bar').classList.add('on');
+  setTimeout(()=>{ try{ $('#frame').contentWindow.focus(); }catch(e){} }, 90);
+}
+function backToMenu(){
+  current = null; padLive = false;
+  clearTimeout(helloT); helloT = null;
+  $('#frame').src = 'about:blank';
+  $('#menu').classList.remove('off');
+  $('#stage').classList.remove('on');
+  $('#bar').classList.remove('on');
+  if(document.fullscreenElement) document.exitFullscreen().catch(()=>{});
+  paintScores();
+  window.focus();
+}
+// a card can offer a touch-native build; if it doesn't, the desktop one already
+// handles touch (Jet Slalom steers from a drag as it is)
+$$('.card').forEach(c=>{ if(c.dataset.direct) return; c.addEventListener('click', ()=>
+  launch((TOUCH && c.dataset.touch) ? c.dataset.touch : c.dataset.game, c.dataset.name)); });
+$('#back').addEventListener('click', backToMenu);
+
+/* ---- fullscreen ---- */
+function toggleFS(){
+  if(document.fullscreenElement) document.exitFullscreen().catch(()=>{});
+  else (document.documentElement.requestFullscreen||(()=>{})).call(document.documentElement).catch(()=>{});
+}
+$('#fsBar').addEventListener('click', toggleFS);
+$('#fsMenu').addEventListener('click', toggleFS);
+addEventListener('fullscreenchange', ()=> setTimeout(pushDisplay, 60));
+
+/* ---- reset scores ---- */
+$('#wipe').addEventListener('click', ()=>{
+  ['jshs','jshs_relaxed','af3hs'].forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} });
+  paintScores();
+});
+
+/* ---- messages from the games ---- */
+addEventListener('message', e=>{
+  const d = e.data;
+  if(!d) return;
+  // proof that framing actually worked — cancels the fallback armed in launch()
+  if(d.t === 'hello'){ clearTimeout(helloT); helloT = null; }
+  if(d.t === 'exit') backToMenu();
+  if(d.t === 'sound'){ SOUND = !!d.on; lsSet('fgr_sound', SOUND?'on':'off'); paintSettings(); }
+  // the running game tells us whether a pad is actually live — browsers only
+  // expose one after a gesture in that document, so the shell can't see it itself
+  if(d.t === 'padstate'){ padLive = !!d.on; paintSettings(); }
+});
+addEventListener('keydown', e=>{ if(e.key === 'Escape' && current) backToMenu(); });
+
+paintSettings(); paintScores();
+</script>
+</body>
+</html>

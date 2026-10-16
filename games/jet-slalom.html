@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>JET SLALOM — Revival</title>
+<style>
+  html,body{margin:0;padding:0;background:#07080c;height:100%;overflow:hidden;
+            display:flex;align-items:center;justify-content:center;
+            touch-action:none;-webkit-user-select:none;user-select:none;
+            -webkit-tap-highlight-color:transparent;overscroll-behavior:none;}
+  canvas{background:#000;display:block;box-shadow:0 0 40px rgba(0,0,0,.85);cursor:crosshair;
+         touch-action:none;}
+  canvas.chunky{image-rendering:pixelated;image-rendering:crisp-edges;}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<script>
+"use strict";
+/* ==========================================================================
+   JET SLALOM — browser revival
+   Mouse or ← → / A D to steer.  Z / click = start & continue.
+   M mute · P pause · R restart · Esc back to arcade.
+
+   Design notes
+   ------------
+   THE JET'S PACE NEVER CHANGES. Like the original, the only lever pulled as
+   things get harder is what the world throws at you: a "section director"
+   picks movements — open sky / slalom / scatter field / bulkheads / gate run /
+   chicane / canyon run / spire storm / breather — weighted by a difficulty
+   value that both RAMPS and FLUCTUATES, and that value also drives density,
+   corridor width and how much bulk crowds around each peak. Nothing in the
+   world ever moves — every obstacle is bolted to its spot on the ground plane,
+   and everything is a triangular peak: no other silhouettes.
+
+   Solvability is structural, not hoped-for: a virtual racing line ("the lane")
+   snakes down the track, and its lateral movement per unit of depth is capped
+   at well under what the jet can physically cover in that same depth. Every
+   obstacle is then pushed clear of the corridor around that lane. So a
+   continuous, reachable gap always exists at every difficulty — the canyon run
+   is a real canyon run, not a coin flip. See dev/test-solvable.js.
+
+   There is no lateral wall. Hold a direction and you keep sliding forever; the
+   world is generated around where the jet WILL be, so the field sweeps along
+   with you diagonally instead of falling behind.
+   ========================================================================== */
+
+const BW = 320, BH = 240;                 // classic internal resolution
+const cv = document.getElementById('game');
+const g  = cv.getContext('2d');
+
+/* ---------------------------------------------------------------- display */
+/* Shared harness: ?size=fit|1..6  ?style=sharp|chunky, live-updated by the
+   arcade shell via postMessage.  "sharp" renders at true device pixels and
+   scales all geometry; "chunky" renders 320x240 and nearest-neighbours up. */
+let SCALE = 1;
+const DISP = (function(){
+  const q = new URLSearchParams(location.search);
+  let size  = q.get('size')  || lsGet('fgr_size')  || 'fit';
+  let style = q.get('style') || lsGet('fgr_style') || 'sharp';
+  function apply(){
+    let s = (size === 'fit')
+      ? Math.min(innerWidth/BW, innerHeight/BH) * 0.985
+      : (parseFloat(size) || 1);
+    if(style === 'chunky'){
+      s = Math.max(1, Math.floor(s));
+      cv.width = BW; cv.height = BH;
+      cv.style.width = (BW*s)+'px'; cv.style.height = (BH*s)+'px';
+      cv.classList.add('chunky');
+      SCALE = 1;
+    } else {
+      s = Math.max(0.5, s);
+      const dpr  = Math.min(3, window.devicePixelRatio || 1);
+      const cssW = Math.round(BW*s), cssH = Math.round(BH*s);
+      cv.width = Math.round(cssW*dpr); cv.height = Math.round(cssH*dpr);
+      cv.style.width = cssW+'px'; cv.style.height = cssH+'px';
+      cv.classList.remove('chunky');
+      SCALE = (cssW*dpr)/BW;
+    }
+    g.imageSmoothingEnabled = false;
+  }
+  apply();
+  addEventListener('resize', apply);
+  addEventListener('message', e=>{
+    const d = e.data;
+    if(!d || d.t !== 'display') return;
+    if(d.size)  size  = d.size;
+    if(d.style) style = d.style;
+    apply();
+  });
+  return { apply };
+})();
+const DBG = new URLSearchParams(location.search).get('dbg')==='1';
+function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+/* Tell the arcade we actually booted. It uses this as proof that framing us
+   worked at all — Chrome on Android refuses to load a local file into a
+   subframe, so the shell would render fine and then every game came up blank
+   with no way for the shell to know. No hello, and the shell stops trying to
+   frame us and opens us in the whole tab instead. */
+if(window.parent && window.parent !== window)
+  try{ window.parent.postMessage({t:'hello'}, '*'); }catch(e){}
+function exitToArcade(){
+  if(window.parent && window.parent !== window){ window.parent.postMessage({t:'exit'},'*'); return; }
+  // running in the whole tab (the arcade's fallback path): the arcade is the
+  // previous history entry, so step back to it rather than reloading it cold
+  if(history.length > 1) history.back(); else location.href = 'index.html';
+}
+
+/* -------------------------------------------------------------- utilities */
+const rnd   = (a,b)=>a+Math.random()*(b-a);
+const irnd  = (a,b)=>Math.floor(rnd(a,b+1));
+const clamp = (v,a,b)=>v<a?a:v>b?b:v;
+const lerp  = (a,b,t)=>a+(b-a)*t;
+const sgn   = v=>v<0?-1:1;
+function hex2rgb(h){ return [parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]; }
+function mix(h1,h2,t){
+  const a=hex2rgb(h1), b=hex2rgb(h2);
+  return 'rgb('+Math.round(lerp(a[0],b[0],t))+','+Math.round(lerp(a[1],b[1],t))+','+Math.round(lerp(a[2],b[2],t))+')';
+}
+function shadeRGB(rgbStr,f){
+  const m = /(\d+),(\d+),(\d+)/.exec(rgbStr);
+  return 'rgb('+Math.min(255,Math.round(m[1]*f))+','+Math.min(255,Math.round(m[2]*f))+','+Math.min(255,Math.round(m[3]*f))+')';
+}
+function poly(pts,fill){
+  g.beginPath(); g.moveTo(pts[0][0],pts[0][1]);
+  for(let i=1;i<pts.length;i++) g.lineTo(pts[i][0],pts[i][1]);
+  g.closePath(); g.fillStyle=fill; g.fill();
+}
+
+/* ------------------------------------------------------------------ sound */
+/* Owned by the arcade shell: ?sound=on|off seeds it, postMessage updates it
+   live, and pressing S in here reports back so the shell's toggle agrees. */
+let soundOn = (new URLSearchParams(location.search).get('sound') || lsGet('fgr_sound') || 'off') === 'on';
+let ac=null;
+function setSound(on, tell){
+  soundOn = !!on;
+  lsSet('fgr_sound', soundOn ? 'on' : 'off');
+  if(tell && window.parent && window.parent !== window)
+    window.parent.postMessage({t:'sound', on:soundOn}, '*');
+}
+addEventListener('message', e=>{
+  const d = e.data;
+  if(d && d.t === 'sound') setSound(d.on, false);
+  if(d && d.t === 'pace'){
+    setPace(d.relaxed);
+    hiScore = parseInt(lsGet(hsKey())||'0',10)||0;   // the board changed with it
+  }
+});
+/* Compact in place rather than rebuilding: the obstacle list was rebuilt with
+   filter() every single frame, which is one throwaway array a frame for the
+   whole run. Same semantics, no allocation. */
+function sweep(a, keep){
+  let w = 0;
+  for(let i=0;i<a.length;i++){ const v = a[i]; if(keep(v)){ if(w!==i) a[w] = v; w++; } }
+  a.length = w;
+  return a;
+}
+/* ---- voices ----------------------------------------------------------------
+   Every effect used to wire a fresh oscillator and gain straight to
+   ac.destination and then just walk away. o.stop() silences a voice but does
+   NOT unwire it, so the graph only ever grew: at a full rate of fire that is
+   roughly 150 new nodes a second, and the audio thread walks all of them every
+   render quantum. A long run therefore got progressively choppier — which is
+   exactly the late-area lag. Now there is one master gain, every voice
+   disconnects itself the moment it ends (with a timer as a backstop, because
+   onended does not fire if the context is suspended), a hard cap on how many
+   can ever be live at once, and a per-effect minimum gap so the gun cannot
+   spawn a voice per bullet. */
+const VOICES = 20;
+let voices = 0, master = null;
+const lastAt = Object.create(null);
+function beep(type, freq, dur, vol, slide, tag, gap){
+  if(!soundOn || voices >= VOICES) return;
+  try{
+    if(!ac){
+      ac = new (window.AudioContext||window.webkitAudioContext)();
+      master = ac.createGain(); master.gain.value = 1; master.connect(ac.destination);
+    }
+    if(ac.state === 'suspended') ac.resume();
+    const now = ac.currentTime;
+    if(tag){    // throttle repeats of one effect — on the WALL clock, because
+                // ac.currentTime freezes whenever the context is suspended and
+                // would then throttle the effect to permanent silence
+      const t = performance.now();
+      if(t - (lastAt[tag] || -1e9) < gap*1000) return;
+      lastAt[tag] = t;
+    }
+    const o = ac.createOscillator(), gn = ac.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, now);
+    if(slide) o.frequency.exponentialRampToValueAtTime(Math.max(20, freq+slide), now+dur);
+    gn.gain.setValueAtTime(vol, now);
+    gn.gain.exponentialRampToValueAtTime(0.0001, now+dur);
+    o.connect(gn); gn.connect(master);
+    voices++;
+    let done = false;
+    const release = () => {
+      if(done) return; done = true; voices--;
+      try{ o.disconnect(); gn.disconnect(); }catch(e){}
+    };
+    o.onended = release;
+    setTimeout(release, (dur + 0.3) * 1000);
+    o.start(now); o.stop(now + dur);
+  }catch(e){}
+}
+const sfx = {
+  crash : ()=>beep('sawtooth',110,.9,.22,-80),
+  graze : ()=>beep('square',1400,.05,.03,600,'graze',0.05),
+  sect  : ()=>beep('triangle',330,.22,.06,240),
+  start : ()=>beep('square',220,.16,.06,500),
+};
+
+/* ------------------------------------------------------------ HUD / camera */
+const TOP=20, BOT=16, VH=BH-TOP-BOT;
+const CX=BW/2, HORIZON=TOP+78;
+const F=150, CAMH=13;                     // focal length, camera height
+const GK = CAMH*F;                        // ground constant: y = HORIZON + GK/z
+const ZSPAWN=195, PXZ=15;                 // spawn plane, player plane
+/* There is NO hard lateral wall. The jet's x is unbounded — the camera is
+   locked to it, so holding a direction just makes the world stream past
+   diagonally forever, exactly like the original. Instead the world is
+   *generated around the jet*: BAND is the half-width of the spawn band and
+   LANEMAX how far the safe lane may sit from that band's centre. */
+const BAND=124, LANEMAX=94;
+
+/* -------------------------------------------------- sci-fi time-of-day cycle */
+/* Each stop carries its own obstacle palette, so the whole biome shifts. */
+const PALS = [
+  { name:'DAWN',    sky:'#f6c489', hz:'#ffe6bd', gnd:'#46a04e', b:0.92, star:0.00,
+    sunH:16, sunR:11, sunC:'#fff2c8',
+    cols:['#b8442a','#e0902e','#8a5a20','#c05a86','#3d68b0','#a3702f'] },
+  { name:'MORNING', sky:'#cfe9f5', hz:'#ecf8fc', gnd:'#a4dda1', b:1.00, star:0.00,
+    sunH:52, sunR:8,  sunC:'#ffffe0',
+    cols:['#e42222','#1550e2','#ff42d2','#f2a41e','#22a6e6','#e8522f'] },
+  { name:'ZENITH',  sky:'#f0aebe', hz:'#f8d4dc', gnd:'#3fae3f', b:1.00, star:0.00,
+    sunH:70, sunR:7,  sunC:'#fffbe8',
+    cols:['#8a5a20','#7a4a1a','#4a6a9a','#8a8a92','#9a6a2a','#6a7a8a'] },
+  { name:'DUSK',    sky:'#7c3f92', hz:'#e8785c', gnd:'#2f7a4a', b:0.84, star:0.10,
+    sunH:8,  sunR:14, sunC:'#ffb050',
+    cols:['#e05a30','#a03060','#5f3d88','#d08040','#40607a','#8a3054'] },
+  { name:'NIGHT',   sky:'#0e0f2e', hz:'#25315a', gnd:'#123a2a', b:0.52, star:1.00,
+    sunH:60, sunR:9,  sunC:'#d8e4ff',
+    cols:['#3a5a9a','#5c3a7c','#2a6a5a','#7a5a3a','#4a4a6a','#6a2a4a'] },
+  { name:'XENON',   sky:'#5a11a0', hz:'#8a24c8', gnd:'#8a8f2a', b:0.98, star:0.35,
+    sunH:34, sunR:10, sunC:'#f0e0ff',
+    cols:['#e42020','#f2a41e','#ff42d2','#2060e0','#e060a0','#d84010'] },
+  { name:'HALOGEN', sky:'#a8ece4', hz:'#dcfff9', gnd:'#2f8f7a', b:1.00, star:0.00,
+    sunH:46, sunR:8,  sunC:'#ffffff',
+    cols:['#106a9a','#1eb0a0','#ded040','#a04070','#2f7a52','#d08030'] },
+  { name:'RED GIANT',sky:'#d4562f', hz:'#ffab63', gnd:'#7a3a28', b:1.00, star:0.05,
+    sunH:12, sunR:22, sunC:'#ffd08a',
+    cols:['#2a1a3a','#8a2a2a','#f0d060','#d06020','#5a2a5a','#20406a'] },
+];
+const CYCLE = 132*60;                     // frames per full colour cycle
+function palette(fr){
+  const p = (fr % CYCLE)/CYCLE * PALS.length;
+  const i = Math.floor(p), t = p - i;
+  const A = PALS[i], B = PALS[(i+1)%PALS.length];
+  const cols = [];
+  for(let k=0;k<6;k++) cols.push(mix(A.cols[k], B.cols[k], t));
+  return {
+    sky : mix(A.sky,B.sky,t), hz: mix(A.hz,B.hz,t), gnd: mix(A.gnd,B.gnd,t),
+    b   : lerp(A.b,B.b,t),    star: lerp(A.star,B.star,t),
+    sunH: lerp(A.sunH,B.sunH,t), sunR: lerp(A.sunR,B.sunR,t),
+    sunC: mix(A.sunC,B.sunC,t),
+    name: t<0.5 ? A.name : B.name,
+    cols
+  };
+}
+/* fixed star field, drawn only when the palette is dark */
+const STARS = (function(){ const s=[]; for(let i=0;i<70;i++)
+  s.push({x:rnd(-90,BW+90), y:rnd(TOP-40,HORIZON-4), m:rnd(.35,1)}); return s; })();
+
+/* ------------------------------------------------------------------ input */
+const keys={};
+let mouseX=BW/2, useMouse=false, startReq=false;
+addEventListener('keydown',e=>{
+  keys[e.code]=true;
+  if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].includes(e.code)) e.preventDefault();
+  if(e.code==='KeyM') setSound(!soundOn, true);   // M for mute, same as Area Flat 3
+  if(e.code==='KeyP'&&state==='play') paused=!paused;
+  if(e.code==='Escape') exitToArcade();
+  if(e.code==='KeyZ'||e.code==='Enter'||e.code==='Space') startReq=true;
+  if(e.code==='KeyR'&&state!=='title') fullReset();
+  if(e.code!=='KeyZ') useMouse=false;
+});
+addEventListener('keyup',e=>{ keys[e.code]=false; });
+cv.addEventListener('mousemove',e=>{
+  const r=cv.getBoundingClientRect();
+  mouseX = (e.clientX-r.left)*(BW/r.width);
+  useMouse = true;
+});
+cv.addEventListener('mousedown',e=>{ e.preventDefault(); startReq=true; window.focus(); });
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+/* ---------------- touch: a floating virtual stick ----------------
+   Absolute finger-position steering doesn't work here, because the jet is always
+   drawn dead centre — there's nothing on screen for your finger to correspond
+   to. So: put a thumb down anywhere and pull. How far you pull sets how fast you
+   slide, exactly like the gamepad stick, and holding at full deflection strafes
+   forever the way the game is built to allow. The origin floats, so you never
+   run out of thumb travel. Lifting off stops you — the old handlers had no
+   touchend at all, which left the jet steering after you let go. */
+const TSTICK = 46;                       // logical px for full deflection
+let touchId = null, touchOX = 0, touchDX = 0;
+function touchX(t){ const r = cv.getBoundingClientRect(); return (t.clientX-r.left)*(BW/r.width); }
+cv.addEventListener('touchstart', e=>{
+  e.preventDefault(); startReq = true; useMouse = false;
+  if(touchId === null && e.changedTouches.length){
+    const t = e.changedTouches[0];
+    touchId = t.identifier; touchOX = touchX(t); touchDX = 0;
+  }
+}, {passive:false});
+cv.addEventListener('touchmove', e=>{
+  e.preventDefault();
+  for(const t of e.changedTouches){
+    if(t.identifier !== touchId) continue;
+    const x = touchX(t);
+    let d = x - touchOX;
+    if(d >  TSTICK){ touchOX = x - TSTICK; d =  TSTICK; }   // floating origin
+    if(d < -TSTICK){ touchOX = x + TSTICK; d = -TSTICK; }
+    touchDX = d;
+  }
+}, {passive:false});
+function touchOff(e){
+  e.preventDefault();
+  for(const t of e.changedTouches)
+    if(t.identifier === touchId){ touchId = null; touchDX = 0; }
+}
+cv.addEventListener('touchend',    touchOff, {passive:false});
+cv.addEventListener('touchcancel', touchOff, {passive:false});
+const COARSE = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
+
+
+/* ---------------- gamepad ----------------
+   Polled rather than event-driven, because that's all the Gamepad API offers.
+   Analog stick with a deadzone, d-pad as a digital fallback, and edge-detection
+   on the buttons that should fire once per press rather than per frame.
+   Note: browsers only expose pads after a gesture in THIS document, so the pad
+   wakes up on the first button press. */
+const PAD = { x:0, y:0, fire:false, laser:false, bomb:false, start:false, on:false };
+const padPrev = { bomb:false, start:false, alt:false };
+/* Owned by the arcade shell like sound is: ?pad=on|off seeds it, postMessage
+   toggles it live, and we report back whenever a pad appears or disappears so
+   the shell can show whether one is actually live. */
+let padEnabled = (new URLSearchParams(location.search).get('pad')
+                  || lsGet('fgr_pad') || 'on') !== 'off';
+let padSeen = false;
+/* ---- pace ----------------------------------------------------------------
+   Two paces, classic and relaxed. Relaxed is NOT an easy mode: it generates the
+   same world, obstacle for obstacle, under the same structural guarantee — the
+   corridor's drift budget is measured in FRAMES OF FLIGHT, so slowing the
+   scroll stretches that budget and the jet's reach by the same factor and the
+   proof carries over untouched. */
+let RELAXED = (new URLSearchParams(location.search).get('pace') || lsGet('fgr_pace') || 'classic') === 'relaxed';
+function setPace(relaxed){
+  RELAXED = !!relaxed;
+  lsSet('fgr_pace', RELAXED ? 'relaxed' : 'classic');
+  recalcDifficulty();
+}
+function padTell(on){
+  if(on === padSeen) return;
+  padSeen = on;
+  if(window.parent && window.parent !== window)
+    window.parent.postMessage({t:'padstate', on}, '*');
+}
+addEventListener('message', e=>{
+  const d = e.data;
+  if(!d || d.t !== 'padset') return;
+  padEnabled = !!d.on;
+  lsSet('fgr_pad', padEnabled ? 'on' : 'off');
+  if(!padEnabled) padTell(false);
+});
+function pollPad(){
+  if(!padEnabled){ PAD.on=false; PAD.x=PAD.y=0; PAD.fire=PAD.laser=false; PAD.bomb=PAD.start=false; return; }
+  const list = navigator.getGamepads ? navigator.getGamepads() : [];
+  let gp = null;
+  for(const p of list) if(p && p.connected){ gp = p; break; }
+  PAD.on = !!gp;
+  padTell(!!gp);
+  if(!gp){ PAD.x=PAD.y=0; PAD.fire=PAD.laser=false; PAD.bomb=PAD.start=false; return; }
+  const btn = i => !!(gp.buttons[i] && gp.buttons[i].pressed);
+  const dz = 0.22;
+  const ax = gp.axes[0]||0, ay = gp.axes[1]||0;
+  PAD.x = Math.abs(ax)>dz ? ax : 0;
+  PAD.y = Math.abs(ay)>dz ? ay : 0;
+  if(btn(14)) PAD.x = -1;  if(btn(15)) PAD.x = 1;     // d-pad overrides
+  if(btn(12)) PAD.y = -1;  if(btn(13)) PAD.y = 1;
+  PAD.fire  = btn(0) || btn(7);                        // A / right trigger
+  PAD.laser = btn(2) || btn(6) || btn(5);              // X / left trigger / RB
+  const bombNow  = btn(1) || btn(4);                   // B / LB
+  const startNow = btn(9) || btn(8);                   // start / select
+  PAD.bomb  = bombNow  && !padPrev.bomb;
+  PAD.start = startNow && !padPrev.start;
+  padPrev.bomb = bombNow; padPrev.start = startNow;
+}
+
+/* ------------------------------------------------------------ game state */
+let state='title', paused=false, frame=0, time=0;
+const hsKey = () => RELAXED ? 'jshs_relaxed' : 'jshs';  // separate boards per pace
+let score=0, penalty=0, hiScore=parseInt(lsGet(hsKey())||'0',10)||0;
+let px=0, vx=0, bank=0, anchor=0;
+let trees=[], dist=0, nextSpawn=0, pc=0;  // pc = predicted arrival centre
+let laneX=0, laneT=0;                     // the guaranteed-reachable racing line
+let sec=null, prevSecId='', hardStreak=0;
+let banner='', bannerT=0;
+let combo=0, comboT=0, best=0;
+let crashT=0, shards=[], invuln=0;
+let ramp=0, fluct=0, diff=0, spd=1.2, attractSpawn=0, cycOff=0;
+function cyclePhase(){ return Math.floor(time*60) + cycOff; }
+
+function fullReset(){
+  cycOff = cyclePhase() % CYCLE;             // keep the sky where the eye left it
+  score=0; penalty=0; time=0; px=0; vx=0; bank=0; anchor=0;
+  trees=[]; dist=0; nextSpawn=40; laneX=0; laneT=0; pc=0;
+  sec=null; prevSecId=''; hardStreak=0;
+  banner=''; bannerT=0; combo=0; comboT=0; best=0;
+  shards=[]; invuln=90; crashT=0;
+  recalcDifficulty();
+  startSection('open');
+  state='play'; sfx.start();
+}
+function continueRun(){
+  penalty += 1000;
+  state='play'; shards=[]; vx=0; invuln=70; combo=0;
+  trees = trees.filter(t=>t.z>105);       // clear the immediate wall
+  anchor = px; pc = px; laneX = px; laneT = px;
+  startSection('breather');
+}
+
+/* ------------------------------------------------------- difficulty curve */
+/* ramp  : monotone 0->1, the long arc of the run
+   fluct : two out-of-phase sines, the breathing in and out
+   diff  : what the director actually reads                                  */
+/* The jet's pace NEVER changes — like the original. Everything that escalates
+   escalates in the world: how dense it is, how tight the corridor is, which
+   movements the director is allowed to pick, and whether obstacles hold still. */
+const SPEED = 3.35;                                  // world units per frame
+const MAXV  = 3.5;                                   // lateral top speed
+/* Relaxed changes the PACE and nothing else. The difficulty curve, corridor
+   widths, density, which movements the director may pick, how hard canyons
+   close — all identical to classic, because that is where the fun lives. The
+   only thing that moves is how fast the world arrives, and the jet keeps its
+   full lateral speed, so you come out relatively more agile rather than less
+   challenged. */
+const RELAXED_SPD = 0.50;    // world scroll, relative to classic — half pace
+function recalcDifficulty(){
+  ramp  = 1 - Math.exp(-time/95);
+  const w1 = 0.5 + 0.5*Math.sin(time*0.091);      // ~69s
+  const w2 = 0.5 + 0.5*Math.sin(time*0.034 + 1.7); // ~185s
+  fluct = w1*0.62 + w2*0.38;
+  diff  = clamp(ramp*(0.70 + 0.42*fluct), 0, 1);
+  spd   = curSpeed();
+}
+function curSpeed(){ return RELAXED ? SPEED*RELAXED_SPD : SPEED; }
+function maxV(){ return MAXV; }                      // agility is NOT reduced
+function tofFrames(){ return (ZSPAWN-PXZ)/curSpeed(); }  // flight time of a spawned row
+/* half-width of the guaranteed-clear corridor, in world units.
+   jet half-width is 2.4 and the widest obstacle radius ~9.5, so the floor of
+   19 still leaves real wiggle room at maximum difficulty.
+   Inside a canyon the corridor also tightens as the run progresses — the walls
+   close in on you — but never past that proven floor. */
+const CORRIDOR_MIN = 19;
+function corridorHalf(){
+  let base = lerp(36, CORRIDOR_MIN, diff);
+  if(sec && sec.id==='canyon' && sec.len){
+    const p = clamp(1 - sec.left/sec.len, 0, 1);
+    base = Math.max(CORRIDOR_MIN, base*(1 - 0.42*Math.min(1, p*1.4)));
+  }
+  return base;
+}
+
+/* ---------------------------------------------------- the section director */
+/* Lengths are in world units; at SPEED 3.35 that's roughly units/200 seconds.
+   Movements run long on purpose — you should settle into one and learn its
+   rhythm rather than being shuffled between them every couple of seconds. */
+const SECDEF = {
+  open    : { hard:0, len:[1170, 2180], label:'OPEN SKY'        },
+  slalom  : { hard:1, len:[1090, 1720], label:'SLALOM'          },
+  field   : { hard:1, len:[1170, 2030], label:'SCATTER FIELD'   },
+  doors   : { hard:1, len:[1330, 2340], label:'BULKHEADS'       },
+  gates   : { hard:1, len:[1090, 1790], label:'GATE RUN'        },
+  chicane : { hard:2, len:[1250, 2180], label:'CHICANE'         },
+  funnel  : { hard:0, len:[1330, 2030], label:'CANYON APPROACH' },
+  canyon  : { hard:2, len:[4290, 9360], label:'CANYON RUN'      },
+  spires  : { hard:2, len:[1010, 1720], label:'SPIRE STORM'     },
+  // breather deliberately NOT lengthened: it is the gap between movements
+  breather: { hard:0, len:[ 480,  760], label:''                },
+};
+const FUNNEL_WIDE = BAND + 18;            // funnel mouth: wider than the jet can be
+function pickSectionId(){
+  const pool=[]; const add=(id,w)=>{ for(let i=0;i<Math.max(0,w);i++) pool.push(id); };
+  add('open',   Math.round(7 - 5*diff));
+  if(diff>0.07) add('slalom',  Math.round(2 + 3*diff));
+  if(diff>0.16) add('field',   Math.round(1 + 4*diff));
+  if(diff>0.24) add('doors',   Math.round(1 + 4*diff));
+  if(diff>0.30) add('gates',   Math.round(1 + 3*diff));
+  if(diff>0.38) add('chicane', Math.round(1 + 4*diff));
+  if(diff>0.42) add('canyon',  Math.round(1 + 5*diff));
+  if(diff>0.55) add('spires',  Math.round(0 + 4*diff));
+  if(!pool.length) pool.push('open');
+  return pool[irnd(0,pool.length-1)];
+}
+function startSection(force){
+  const isChange = !!sec;          // false only for the very first section
+  let id = force, then = null;
+  if(!id){
+    if(hardStreak>=2) id='breather';
+    else{
+      id = pickSectionId();
+      if(id===prevSecId && Math.random()<0.72) id = pickSectionId();
+    }
+    /* never drop the player straight into a canyon: run a funnel first, whose
+       converging walls corral them into the mouth so they can't end up
+       outside the canyon looking in. */
+    if(id==='canyon'){ id='funnel'; then='canyon'; }
+  }
+  const D = SECDEF[id];
+  const L = lerp(D.len[0], D.len[1], Math.random()) * (0.85 + 0.4*ramp);
+  const cA = irnd(0,5), cB = (cA + irnd(1,5))%6, cC = (cA + irnd(1,5))%6;
+  sec = { id, len:L, left:L, side: Math.random()<.5?-1:1, tick:0, then,
+          phL: rnd(0,6.283), phR: rnd(0,6.283),   // independent ridge phase per wall
+          phC: rnd(0,6.283), pal: [cA, cA, cB, cA, cC] };   // section colour family
+  hardStreak = D.hard ? hardStreak + D.hard : 0;
+  prevSecId = id;
+  if(id==='funnel'){
+    laneT = pc;                            // start converging on the jet at once
+    // open the mouth wide enough that the jet is unarguably inside it already,
+    // however far out it happens to be when the approach begins
+    sec.wide = clamp(Math.abs(pc-laneX) + 70, FUNNEL_WIDE, 300);
+  }
+  /* Start laying the new movement's rows immediately. Without this the leftover
+     spawn step of the OUTGOING movement still has to elapse first — coming off a
+     sparse section (step ~80u) into a dense one that meant up to a second of
+     dead ground between them. */
+  if(isChange) nextSpawn = dist;
+  if(D.label && state==='play'){ banner=D.label; bannerT=110; sfx.sect(); }
+}
+function funnelHalf(){
+  const p = clamp(1 - sec.left/sec.len, 0, 1);
+  const s = p*p*(3-2*p);                   // smoothstep: gentle at both ends
+  return lerp(sec.wide||FUNNEL_WIDE, corridorHalf(), s);
+}
+
+/* --------------------------------------------------------- lane + spawning */
+const LANE_SAFE = 0.42;   // the corridor creeps at well under the jet's reach
+/* Where the jet will actually BE when this row reaches it, if it holds its
+   current drift. Generating around this point is what keeps "hold right
+   forever" honest — the field sweeps along with you instead of falling behind. */
+function predictCentre(){
+  const tof = (ZSPAWN-PXZ)/Math.max(0.5, spd);
+  return px + clamp(vx*tof, -300, 300);
+}
+function newLaneTarget(){
+  const id = sec ? sec.id : 'open';
+  const rel = laneX - pc;
+  if(id==='canyon'){
+    laneT = pc - sgn(rel||1)*rnd(38,LANEMAX);
+  } else if(id==='chicane'){
+    laneT = pc - sgn(rel||1)*rnd(54,LANEMAX);
+  } else if(id==='slalom'){
+    laneT = pc - sgn(rel||1)*rnd(28,66);
+  } else if(id==='doors'){
+    laneT = pc + rnd(-70,70);
+  } else if(id==='funnel'){
+    laneT = pc;                                     // converge on the jet
+  } else if(id==='breather'){
+    laneT = pc + rnd(-30,30);
+  } else {
+    laneT = pc + rnd(-82,82);
+  }
+}
+function laneAdvance(dz){
+  // the funnel mouth keeps re-aiming at the jet almost to the very end, so it
+  // shepherds you in rather than closing somewhere you aren't
+  if(sec && sec.id==='funnel' && sec.left/sec.len > 0.15) laneT = pc;
+  else if(Math.abs(laneT-laneX) < 3.5) newLaneTarget();
+  // rein in a lane that drifted out of the band — but only ever at the safe rate,
+  // never as a jump, so the corridor stays continuous and therefore flyable
+  if(Math.abs(laneT-pc) > LANEMAX) laneT = pc + sgn(laneT-pc)*LANEMAX;
+
+  /* The lane's step budget is measured against the jet's CURRENT diagonal, not
+     against the world. A jet holding full right is already spending all its
+     lateral speed going right — a lane rate-limited in world terms could never
+     keep up, and the walled sections would spawn off to the side. So the lane
+     rides the drift for free and gets an independent deviation budget on top,
+     while its absolute speed is still capped just under the jet's own top
+     speed, which is what keeps it reachable. */
+  /* The corridor may only creep at HALF the jet's top lateral speed. That
+     margin is the whole solvability guarantee: whatever error you're carrying,
+     you close it at the other half. The one exception is when the jet has run
+     right away from the corridor (deliberate strafing) — it is in open air out
+     there, so the corridor may sprint back to meet it without endangering
+     anyone. As soon as it's within reach again the safe rate resumes. */
+  const mv  = maxV();
+  /* Deliberately measured against the CLASSIC speed, not the current one. This
+     is a no-op at classic pace (they're the same number) and it is what keeps
+     relaxed honest: laneAdvance is called per SPAWN, so budgeting against the
+     live speed would let the corridor wander further per unit of DISTANCE
+     whenever the world slowed down — a slower game would quietly generate a
+     wigglier, harder world. Pinning it to SPEED makes the corridor's path
+     through space identical at either pace; the only thing relaxed changes is
+     how many frames you get to fly it. */
+  const dt  = dz / Math.max(0.4, SPEED*1.06);   // budget per unit of distance
+  const far = Math.abs(laneX - px) > LANEMAX + 40;
+  const cap = (far ? 1.7 : LANE_SAFE) * mv * dt;
+  laneX += clamp(laneT-laneX, -cap, cap);
+}
+function treeRadius(h){ return 2.2 + h*0.14; }
+/* Wall heights come from a smooth field driven by depth, not from rnd() — so a
+   canyon reads as rolling crests and buttresses rather than visual noise. Two
+   harmonics: a long swell (~550u) and a shorter ripple (~220u). */
+function ridge(phase, k){
+  const u = nextSpawn + (k||0);
+  return clamp(0.5 + 0.5*(0.62*Math.sin(u*0.0115 + phase) + 0.38*Math.sin(u*0.0287 + phase*1.9)), 0, 1);
+}
+function ridgeH(phase, lo, hi, k){ return lerp(lo, hi, ridge(phase,k)) + rnd(-1.1,1.1); }
+/* Colour comes off the same field. Each section draws from a small related set
+   of the palette's six, and which one you get varies smoothly with depth and
+   position — so obstacles band into strata and each movement has its own look
+   instead of every pyramid being a different colour. */
+function pickCi(k){
+  if(!sec || !sec.pal) return irnd(0,5);
+  const i = clamp(Math.floor(ridge(sec.phC, k) * sec.pal.length), 0, sec.pal.length-1);
+  return sec.pal[i];
+}
+function addTree(x,h,ci){
+  const r = treeRadius(h);
+  // ln records where the safe lane sat at this depth — used by the debug
+  // overlay (?dbg=1) and by the headless solvability harness.
+  const t = { x, z:ZSPAWN, h, r, ci: ci===undefined?pickCi(x*0.8):ci, gz:false, ln:laneX,
+              lean: Math.random()<0.28 ? rnd(-0.10,0.10) : 0 };
+  trees.push(t);
+  return t;
+}
+/* push an obstacle out of the guaranteed corridor (never into it) */
+function outside(x, h, pad){
+  const r = treeRadius(h), c = corridorHalf() + r + (pad||0);
+  const d = x - laneX;
+  if(Math.abs(d) < c) return laneX + sgn(d||(Math.random()<.5?-1:1))*c;
+  return x;
+}
+function spawnFree(h, pad){
+  const x = outside(pc + rnd(-BAND-16, BAND+16), h, pad||0);
+  if(Math.abs(x-pc) > BAND+80) return null;
+  return addTree(x,h);
+}
+/* Everything is bolted to the ground — nothing slides. Extra bulk comes from
+   massifs instead: a main peak with smaller shoulders crowded against it at
+   slightly different depths. Each shoulder is corridor-checked on its own, so
+   density can climb without ever pinching the safe line. */
+function spawnCluster(h, pad){
+  const t = spawnFree(h, pad);
+  if(!t) return null;
+  if(Math.random() < 0.22 + 0.40*diff){
+    const n = 1 + (Math.random() < diff ? 1 : 0);
+    for(let i=0;i<n;i++){
+      const side = Math.random()<.5 ? -1 : 1;
+      const h2 = h * rnd(0.34, 0.72), r2 = treeRadius(h2);
+      const x2 = t.x + side*(t.r + r2*0.82);
+      if(Math.abs(x2-laneX) <= corridorHalf() + r2) continue;   // never into the lane
+      const c = addTree(x2, h2, t.ci);
+      c.z = ZSPAWN - rnd(0, 5);
+    }
+  }
+  return t;
+}
+function emit(dz){
+  const d = diff, id = sec.id;
+  sec.tick++;
+  if(id==='breather'){
+    if(Math.random()<0.55) spawnFree(rnd(7,16), 14);
+  }
+  else if(id==='open'){
+    const n = Math.random() < 0.25+d*0.5 ? 2 : 1;
+    for(let i=0;i<n;i++) spawnCluster(Math.random()<0.3 ? rnd(24,42) : rnd(8,22), 4);
+  }
+  else if(id==='field'){
+    const n = 2 + (Math.random()<d?1:0) + (Math.random()<d*d?1:0);
+    for(let i=0;i<n;i++) spawnCluster(rnd(7,26), 2);
+  }
+  else if(id==='slalom'){
+    sec.side *= -1;
+    const h = rnd(26,44), r = treeRadius(h);
+    addTree(laneX + sec.side*(corridorHalf()+r+rnd(0,4)), h);
+    if(Math.random()<0.5) spawnCluster(rnd(9,20), 8);
+  }
+  else if(id==='gates'){
+    const h1 = ridgeH(sec.phL, 30, 50), h2 = ridgeH(sec.phR, 30, 50);
+    addTree(laneX - (corridorHalf()+treeRadius(h1)+rnd(0,2)), h1);
+    addTree(laneX + (corridorHalf()+treeRadius(h2)+rnd(0,2)), h2);
+    if(Math.random()<0.6) spawnCluster(rnd(8,20), 12);
+  }
+  else if(id==='doors'){
+    /* A bulkhead: obstacles clear across the band with exactly one door, sitting
+       on the lane. Reads instantly, and it gets harder purely by the door
+       getting narrower — no extra speed needed. */
+    const ch = corridorHalf();
+    for(const side of [-1,1]){
+      let x = laneX + side*ch, spanned = 0;
+      const ph = side<0 ? sec.phL : sec.phR;
+      for(let k=0; k<16 && spanned < BAND+44; k++){
+        // tallest right at the doorway, tapering outward, so the gap is unmissable
+        const h = clamp(lerp(46, 19, clamp(spanned/(BAND*0.75),0,1))
+                        + (ridge(ph, spanned*2.6)-0.5)*11, 12, 52);
+        const r = treeRadius(h);
+        addTree(x + side*r, h);
+        const step = 2*r + rnd(0,2);
+        x += side*step; spanned += step;
+      }
+    }
+  }
+  else if(id==='chicane'){
+    /* Thin gate pairs on a lane that whips side to side as fast as the jet can
+       legally follow — the fast-twitch counterpart to the long canyon. */
+    const h1 = ridgeH(sec.phL, 24, 46), h2 = ridgeH(sec.phR, 24, 46);
+    addTree(laneX - (corridorHalf()+treeRadius(h1)+rnd(0,2)), h1);
+    addTree(laneX + (corridorHalf()+treeRadius(h2)+rnd(0,2)), h2);
+    if(sec.tick%3===0) spawnFree(rnd(10,22), 10);
+  }
+  else if(id==='funnel'){
+    /* Converging walls. Each row lays a solid BAND of obstacles from the mouth
+       edge outward — the band is far wider than the per-row narrowing step, so
+       successive rows overlap into one continuous V. There is no way around
+       the outside: by the time the walls are tight you are already inside. */
+    const fh = funnelHalf();
+    for(const side of [-1,1]){
+      let x = laneX + side*fh, spanned = 0;
+      /* Wall depth is adaptive: whichever side the jet has run out toward gets
+         a wall long enough to reach past it, so there is never open air around
+         the outside of the mouth. The other side stays cheap. */
+      const toward = side*(pc-laneX);
+      const need = clamp(Math.max(fh > 70 ? 118 : 54, toward - fh + 90), 54, 360);
+      const ph = side<0 ? sec.phL : sec.phR;
+      for(let k=0; k<24 && spanned < need; k++){
+        const h = ridgeH(ph, 24, 48, spanned*2.2), r = treeRadius(h);
+        addTree(x + side*r, h);
+        const step = 2*r + rnd(0,3);
+        x += side*step; spanned += step;
+      }
+    }
+    if(sec.tick%3===0 && fh > 60) spawnFree(rnd(8,18), 6);   // a little texture inside
+  }
+  else if(id==='canyon'){
+    // continuous walls either side of the snaking lane, crests set by the ridge
+    // field so the rock rises and falls smoothly as you fly along it
+    const hL = ridgeH(sec.phL, 26, 55);
+    const hR = ridgeH(sec.phR, 26, 55);
+    addTree(laneX - (corridorHalf()+treeRadius(hL)+rnd(0,3)), hL);
+    addTree(laneX + (corridorHalf()+treeRadius(hR)+rnd(0,3)), hR);
+    if(sec.tick%2===0){                    // second rank: a lower echo behind
+      const h3 = ridgeH(sec.phL, 17, 42, 120);
+      const h4 = ridgeH(sec.phR, 17, 42, 120);
+      addTree(laneX - (corridorHalf()+treeRadius(h3)+rnd(9,22)), h3);
+      addTree(laneX + (corridorHalf()+treeRadius(h4)+rnd(9,22)), h4);
+    }
+  }
+  else if(id==='spires'){
+    const n = 1 + (Math.random()<0.5+d*0.4?1:0);
+    for(let i=0;i<n;i++){
+      const xr = pc + rnd(-BAND-10, BAND+10);
+      const h = ridgeH(sec.phL, 34, 60, xr*0.7);   // nearby needles cluster in height
+      const x = outside(xr, h, 3);
+      if(Math.abs(x-pc) > BAND+80) continue;
+      const t = addTree(x,h);
+      t.r *= 0.72;                                 // needles: thinner than they are tall
+      if(Math.random() < 0.3 + 0.3*d){             // a shoulder crowding the needle
+        const side = Math.random()<.5?-1:1, h2 = h*rnd(0.3,0.6), r2 = treeRadius(h2)*0.72;
+        const x2 = t.x + side*(t.r + r2*0.8);
+        if(Math.abs(x2-laneX) > corridorHalf() + r2){
+          const c = addTree(x2, h2, t.ci); c.r *= 0.72; c.z = ZSPAWN - rnd(0,5);
+        }
+      }
+    }
+  }
+}
+function spawnStep(){
+  const d = diff;
+  switch(sec.id){
+    case 'breather': return 60 - 16*d;
+    case 'open':     return 28 - 13*d + rnd(0,10);
+    case 'field':    return 17 - 8*d + rnd(0,3);
+    case 'slalom':   return 24 - 9*d;
+    case 'gates':    return 36 - 15*d;
+    case 'doors':    return 88 - 34*d;
+    case 'chicane':  return 15 - 3*d;
+    case 'funnel':   return 11;
+    case 'canyon':   return 8.5 - 1.5*d;
+    case 'spires':   return 15 - 6*d + rnd(0,3);
+  }
+  return 30;
+}
+function advanceWorld(sp){
+  dist += sp;
+  pc = predictCentre();
+  sec.left -= sp;
+  if(sec.left <= 0) startSection(sec.then || undefined);
+  let guard = 0;
+  while(dist >= nextSpawn && guard++ < 60){
+    const dz = Math.max(3, spawnStep());
+    nextSpawn += dz;
+    laneAdvance(dz);
+    emit(dz);
+  }
+}
+
+/* ----------------------------------------------------------------- update */
+function update(){
+  frame++;
+  pollPad();
+  if(PAD.fire || PAD.start) startReq = true;
+  if(state==='title'){
+    if(startReq){ startReq=false; fullReset(); return; }
+    startReq=false;
+    /* attract mode — a slow drifting world behind the title card so the
+       colour cycle is visible before you ever press start */
+    time += 0.010;
+    recalcDifficulty();
+    const asp = 1.05;
+    dist += asp;
+    attractSpawn -= asp;
+    if(attractSpawn <= 0){ attractSpawn = rnd(26,58); addTree(rnd(-110,110), rnd(9,36)); }
+    sweep(trees, t=>{ t.z -= asp; return t.z > PXZ; });
+    px   = Math.sin(frame*0.0075)*34;
+    bank = Math.sin(frame*0.0075 + Math.PI/2)*0.30;
+    return;
+  }
+  if(state==='crash'){
+    crashT++;
+    for(const s of shards){ s.x+=s.vx; s.y+=s.vy; s.vy+=.15; s.rot+=s.vr; }
+    if(crashT>46 && startReq){ startReq=false; continueRun(); }
+    startReq=false; return;
+  }
+  startReq=false;
+  if(paused) return;
+
+  time += 1/60;
+  recalcDifficulty();
+  if(invuln>0) invuln--;
+  if(bannerT>0) bannerT--;
+  if(comboT>0){ comboT--; if(comboT===0) combo=0; }
+
+  /* ---- steering: no lateral wall, ever ----------------------------------
+     Keys give straight velocity control, so holding one banks you off across
+     an endless field. The mouse positions you precisely inside a window
+     around a drifting anchor; shove the pointer past the window's edge and
+     the anchor itself starts sliding, so you keep strafing for as long as you
+     hold it there. Either way px is unbounded and the camera follows. */
+  const mv = maxV();
+  let steer=0;
+  if(keys['ArrowLeft']||keys['KeyA']) steer-=1;
+  if(keys['ArrowRight']||keys['KeyD']) steer+=1;
+  if(touchId !== null){
+    const off = Math.abs(touchDX) < 5 ? 0 : touchDX/TSTICK;   // small deadzone
+    useMouse=false; vx = clamp(off*mv, -mv, mv); anchor = px;
+  } else if(PAD.x !== 0){
+    // a stick is a velocity control, which is exactly what this game wants —
+    // push it right and you keep sliding right, as far as you like
+    useMouse=false; vx = clamp(PAD.x*mv, -mv, mv); anchor = px;
+  } else if(steer!==0){
+    useMouse=false; vx = clamp(vx + steer*0.62, -mv, mv); anchor = px;
+  } else if(useMouse){
+    const off  = clamp((mouseX/BW - 0.5)*2, -1, 1);      // -1 .. 1 across the canvas
+    const DEAD = 0.80;
+    if(Math.abs(off) > DEAD)
+      anchor += sgn(off) * ((Math.abs(off)-DEAD)/(1-DEAD)) * mv * 0.92;
+    vx = clamp((anchor + off*96 - px)*0.26, -mv, mv);
+  } else { vx *= 0.86; anchor = px; }
+  px += vx;
+  bank += ((vx/mv) - bank)*0.16;
+
+  /* world */
+  advanceWorld(spd);
+  // pace is flat, so the score rewards how thick the world is, not how fast
+  score += 3 + Math.round(diff*6);
+
+  const keep=[];
+  for(const t of trees){
+    t.z -= spd;
+    // graze bonus, evaluated just before the obstacle reaches the jet
+    if(!t.gz && t.z < PXZ+16){
+      t.gz = true;
+      const gap = Math.abs(t.x-px) - t.r;
+      if(gap > 2.6 && gap < 9.5){
+        combo = Math.min(combo+1, 20); comboT=110;
+        best = Math.max(best, combo);
+        score += 40 + combo*20;
+        sfx.graze();
+      }
+    }
+    if(t.z <= PXZ){
+      if(!invuln && Math.abs(t.x-px) < t.r+2.4){ doCrash(); return; }
+      continue;
+    }
+    if(Math.abs(t.x-px) > 520) continue;    // far off the flank: unreachable, drop it
+    keep.push(t);
+  }
+  trees = keep;
+  const net = score-penalty;
+  if(net > hiScore){ hiScore = net; lsSet(hsKey(),''+hiScore); }
+}
+function doCrash(){
+  state='crash'; crashT=0; combo=0; sfx.crash();
+  shards=[];
+  for(let i=0;i<16;i++)
+    shards.push({ x:CX+rnd(-22,22), y:BH-BOT-20+rnd(-10,10),
+      vx:rnd(-3.2,3.2), vy:rnd(-4.4,-1), rot:rnd(0,6.3), vr:rnd(-.32,.32),
+      size:rnd(3,9), col:['#101840','#28e0e0','#ffffff','#cc2222','#ffd040'][irnd(0,4)] });
+}
+
+/* ---------------------------------------------------------------- drawing */
+function drawPlane(x,y,b){
+  g.save(); g.translate(x,y); g.rotate(b*0.34); g.scale(1, 1-Math.abs(b)*0.14);
+  poly([[-34,4],[-9,-3],[9,-3],[34,4],[28,9],[-28,9]], '#101840');   // wing
+  poly([[-7,-9],[7,-9],[10,7],[-10,7]], '#1a2358');                  // fuselage
+  poly([[-34,4],[-28,9],[-20,9],[-24,4]], '#0a1030');                // wing shade
+  poly([[ 34,4],[ 28,9],[ 20,9],[ 24,4]], '#0a1030');
+  g.fillStyle='#2a66e8'; g.beginPath(); g.ellipse(0,-2,6,5,0,0,7); g.fill();
+  g.fillStyle='#8fdcff'; g.beginPath(); g.ellipse(-1,-3,3.4,2.6,0,0,7); g.fill();
+  for(const s of [-1,1]){                                            // roundels
+    g.fillStyle='#f2f2f2'; g.beginPath(); g.arc(s*20,4.5,4,0,7); g.fill();
+    g.fillStyle='#d02222'; g.beginPath(); g.arc(s*20,4.5,2,0,7); g.fill();
+  }
+  g.fillStyle='#ffd040'; g.fillRect(-2.5,-11,5,3);                   // nose
+  // afterburner
+  const fl = 3+Math.sin(frame*0.7)*1.4;
+  g.fillStyle='#ff9a2a'; g.fillRect(-4, 7, 8, fl);
+  g.fillStyle='#ffe89a'; g.fillRect(-2, 7, 4, fl*0.6);
+  g.restore();
+}
+function drawTree(t,pal){
+  const s = F/t.z;
+  const sx = CX + (t.x-px)*s;
+  const gy = HORIZON + GK/t.z;
+  const hpx = t.h*s, w = Math.max(0.8, t.r*s);
+  if(sx+w < -90 || sx-w > BW+90) return;
+  const c    = pal.cols[t.ci];
+  const lit  = shadeRGB(c, pal.b);
+  const dark = shadeRGB(c, pal.b*0.60);
+  const ax   = sx + t.lean*hpx;              // leaning apex
+  poly([[sx-w,gy],[sx,gy+w*0.22],[ax,gy-hpx]], lit);
+  poly([[sx,gy+w*0.22],[sx+w,gy],[ax,gy-hpx]], dark);
+}
+/* World-locked lateral markings. A line of constant world-x projects to a
+   straight screen line (both sx and gy are linear in 1/z), so this is one cheap
+   path. Without it the ground is a flat colour and your own sideways motion is
+   ambiguous — obstacles look like they're sliding instead of you banking. */
+function drawGroundLines(){
+  const SP = 27, zN = 11, zF = 210;
+  const uN = F/zN, uF = F/zF;
+  const yN = HORIZON + GK/zN, yF = HORIZON + GK/zF;
+  const k0 = Math.floor((px-380)/SP), k1 = Math.ceil((px+380)/SP);
+  g.strokeStyle = 'rgba(0,0,0,0.065)'; g.lineWidth = 1;
+  g.beginPath();
+  for(let k=k0;k<=k1;k++){
+    const d = k*SP - px;
+    g.moveTo(CX + d*uF, yF);
+    g.lineTo(CX + d*uN, yN);
+  }
+  g.stroke();
+}
+function drawGround(pal){
+  // world-locked shading stripes: cheap, strong sense of speed
+  const yStart = Math.ceil(HORIZON + GK/210);
+  for(let y=yStart; y<BH+46; y++){
+    const z = GK/(y-HORIZON);
+    if(z > 210) continue;
+    const band = Math.floor((z + dist)/17) & 1;
+    if(!band) continue;
+    const a = clamp((210-z)/150, 0, 1)*0.105;
+    g.fillStyle = 'rgba(0,0,0,'+a.toFixed(3)+')';
+    g.fillRect(-90, y, BW+180, 1);
+  }
+}
+function draw(){
+  g.setTransform(SCALE,0,0,SCALE,0,0);
+  const cy  = cyclePhase();
+  const pal = palette(cy);
+
+  g.save();
+  g.beginPath(); g.rect(0,TOP,BW,VH); g.clip();
+  g.save();
+  g.translate(CX,HORIZON); g.rotate(-bank*0.10); g.translate(-CX,-HORIZON);
+
+  /* sky + horizon haze */
+  g.fillStyle = pal.sky; g.fillRect(-90, TOP-100, BW+180, HORIZON-TOP+100);
+  const grd = g.createLinearGradient(0, HORIZON-34, 0, HORIZON);
+  grd.addColorStop(0,'rgba(0,0,0,0)'); grd.addColorStop(1, pal.hz);
+  g.fillStyle = grd; g.fillRect(-90, HORIZON-34, BW+180, 34);
+
+  /* stars */
+  if(pal.star > 0.02){
+    for(const st of STARS){
+      const sx = st.x - px*0.035;
+      g.globalAlpha = pal.star * st.m * (0.65 + 0.35*Math.sin(frame*0.05 + st.x));
+      g.fillStyle = '#ffffff';
+      g.fillRect(((sx % (BW+180)) + BW+180) % (BW+180) - 90, st.y, 1, 1);
+    }
+    g.globalAlpha = 1;
+  }
+  /* sun / moon */
+  const sx0 = CX + Math.sin(cy/CYCLE*Math.PI*2)*142;
+  g.fillStyle = pal.sunC; g.globalAlpha = 0.9;
+  g.beginPath(); g.arc(sx0, HORIZON-pal.sunH, pal.sunR, 0, 7); g.fill();
+  g.globalAlpha = 0.16;
+  g.beginPath(); g.arc(sx0, HORIZON-pal.sunH, pal.sunR*2.1, 0, 7); g.fill();
+  g.globalAlpha = 1;
+
+  /* ground */
+  g.fillStyle = pal.gnd; g.fillRect(-90, HORIZON, BW+180, BH+60);
+  drawGround(pal);
+  drawGroundLines();
+
+  /* obstacles, far to near */
+  const sorted = trees.slice().sort((a,b)=>b.z-a.z);
+  for(const t of sorted) drawTree(t,pal);
+  if(DBG){                                  // ?dbg=1 — show the guaranteed lane
+    for(const t of sorted){
+      const s=F/t.z, gy=HORIZON+GK/t.z;
+      g.fillStyle='#00ff88'; g.fillRect(CX+(t.ln-px)*s-1, gy-2, 2, 2);
+      g.fillStyle='rgba(0,255,136,.35)';
+      g.fillRect(CX+(t.ln-corridorHalf()-px)*s, gy-2, 1, 2);
+      g.fillRect(CX+(t.ln+corridorHalf()-px)*s, gy-2, 1, 2);
+    }
+  }
+  g.restore();
+
+  /* jet / crash */
+  if(state==='play' || state==='title' || paused){
+    if(!(invuln>0 && frame%6<3)) drawPlane(CX, BH-BOT-18, bank);
+  } else if(state==='crash'){
+    const r = Math.min(1, crashT/26);
+    const bw = 30+250*r, bh = 12+78*r;
+    g.fillStyle='#e83020';
+    g.beginPath(); g.ellipse(CX, BH-BOT-14, bw/1.6, bh/1.35, 0, 0, 7); g.fill();
+    if(crashT<22){ g.fillStyle='#ffd040';
+      g.beginPath(); g.ellipse(CX, BH-BOT-16, bw/3.2, bh/2.6, 0, 0, 7); g.fill(); }
+    for(const s of shards){
+      g.save(); g.translate(s.x,s.y); g.rotate(s.rot);
+      poly([[0,-s.size],[s.size*.8,s.size*.6],[-s.size*.8,s.size*.6]], s.col);
+      g.restore();
+    }
+  }
+
+  /* section banner */
+  if(bannerT>0 && banner){
+    const a = Math.min(1, bannerT/28);
+    g.globalAlpha = a; g.textAlign='center';
+    g.font='bold 15px monospace';
+    g.fillStyle='#000'; g.fillText(banner, CX+1, 62);
+    g.fillStyle='#ffee66'; g.fillText(banner, CX, 61);
+    g.globalAlpha = 1; g.textAlign='left';
+  }
+  /* graze combo */
+  if(combo>1 && state==='play'){
+    g.textAlign='center'; g.font='bold 9px monospace';
+    g.globalAlpha = Math.min(1, comboT/30);
+    g.fillStyle='#ffffff'; g.fillText('GRAZE x'+combo, CX, BH-BOT-34);
+    g.globalAlpha=1; g.textAlign='left';
+  }
+  g.restore(); // unclip
+
+  /* ------------------------------- HUD ------------------------------- */
+  const teal='#0f9aa0';
+  g.fillStyle=teal;
+  g.fillRect(0,0,BW,TOP); g.fillRect(0,BH-BOT,BW,BOT);
+  g.fillRect(0,0,4,BH);   g.fillRect(BW-4,0,4,BH);
+  g.font='bold 10px monospace'; g.textAlign='left';
+  g.fillStyle='#083a4a'; g.fillText('Score:', 22, 13);
+  g.fillStyle='#eaffff'; g.fillText((''+score).padStart(6,'0'), 62, 13);
+  g.fillStyle='#083a4a'; g.fillText('Continue penalty:', 150, 13);
+  g.fillStyle='#eaffff'; g.fillText(''+penalty, 262, 13);
+  g.fillStyle='#eaffff'; g.fillText('Your Hi-score:'+hiScore, 6, BH-5);
+  /* Pace tag sits in the top bar's dead space between the score (ends ~98) and
+     the penalty label (starts at 150), RIGHT-aligned to end at 144. Aligning it
+     from the right rather than placing its left edge is the point: whatever the
+     font metrics turn out to be, it can never grow into the label beside it —
+     which is exactly how the first attempt ended up printing through it. */
+  if(RELAXED){
+    g.fillStyle='#7fe0a0'; g.textAlign='right';
+    g.fillText('RELAXED', 144, 13);
+    g.textAlign='left';
+  }
+  g.textAlign='right';
+  g.fillStyle = soundOn?'#ffee66':'#0b6a70';
+  g.fillText('Sound:'+(soundOn?'on':'off'), BW-8, BH-5);
+  g.textAlign='left';
+  /* speed / intensity pips, bottom centre */
+  if(state!=='title'){
+    const pips = 12;
+    for(let i=0;i<pips;i++){
+      const on = i < Math.round(diff*pips);
+      g.fillStyle = on ? (i>8?'#ff5a4a':'#ffee66') : '#0b6a70';
+      // from 140, not 118: "Your Hi-score:" plus five digits already reaches
+      // ~132, and the pips were printing straight onto the last digit
+      g.fillRect(140+i*7, BH-11, 5, 6);
+    }
+  }
+
+  /* ---------------------------- overlays ----------------------------- */
+  if(state==='title'){
+    g.fillStyle='rgba(0,0,30,0.48)'; g.fillRect(4,TOP,BW-8,VH);
+    g.textAlign='center';
+    g.font='italic bold 30px Georgia, serif';
+    g.fillStyle='#083a4a'; g.fillText('JET SLALOM', CX+2, 84);
+    g.fillStyle='#eaffff'; g.fillText('JET SLALOM', CX, 82);
+    g.font='bold 9px monospace'; g.fillStyle='#ffee66';
+    g.fillText('— browser revival —', CX, 98);
+    g.fillStyle='#fff'; g.font='9px monospace';
+    g.fillText(COARSE ? 'DRAG anywhere and pull to steer'
+                      : 'MOUSE · ← → / A D · or a GAMEPAD stick', CX, 126);
+    g.fillText('thread the gate runs · survive the canyon', CX, 140);
+    g.fillText('skim an obstacle for a GRAZE bonus', CX, 154);
+    g.fillStyle='#9fe8ee';
+    g.fillText(COARSE ? 'pull further to slide faster · lift to stop'
+                      : 'M mute   P pause   R restart   Esc arcade', CX, 172);
+    if(frame%60<40){ g.fillStyle='#ffee66'; g.font='bold 10px monospace';
+      g.fillText(COARSE ? 'TAP TO START' : 'CLICK or PRESS Z TO START', CX, 196); }
+    g.textAlign='left';
+  }
+  if(state==='crash' && crashT>46){
+    g.textAlign='center';
+    g.font='bold 13px monospace'; g.fillStyle='#fff';
+    g.fillText('CRASHED', CX, 96);
+    g.font='9px monospace'; g.fillStyle='#ffee66';
+    g.fillText('best graze chain: '+best, CX, 112);
+    g.fillStyle='#fff';
+    if(frame%60<40) g.fillText('Z / click : CONTINUE  (+1000 penalty)', CX, 132);
+    g.fillText('R : restart from zero', CX, 146);
+    g.textAlign='left';
+  }
+  if(paused && state==='play'){
+    g.fillStyle='rgba(0,0,0,0.45)'; g.fillRect(4,TOP,BW-8,VH);
+    g.textAlign='center'; g.font='bold 14px monospace'; g.fillStyle='#fff';
+    g.fillText('PAUSE', CX, 116); g.textAlign='left';
+  }
+}
+
+/* ------------------------------------------------------------- main loop */
+startSection('open');
+function loop(){ update(); draw(); requestAnimationFrame(loop); }
+loop();
+</script>
+</body>
+</html>

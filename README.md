@@ -6,7 +6,8 @@ Static site for N Dimensional Games, hosted on GitHub Pages (deploy from the `ma
 |---|---|
 | `/` | `index.html` |
 | `/ndvdb/` | NDVDB documentation, **generated** from the Unity package. Don't edit by hand. |
-| `/adrift/` | `adrift/index.html`, the ADRIFT prototype: one self-contained file, copied in from the game project. Don't edit by hand. |
+| `/games/` | `games/index.html`, the arcade cabinet (from the Flash Game Revival project) with cards for all three games; `games/jet-slalom.html`, `games/area-flat-3.html` and `games/area-flat-3-mobile.html` are the two classics, framed by the cabinet |
+| `/adrift/` | `adrift/index.html`, the ADRIFT prototype: one self-contained file, copied in from the game project. The arcade's ADRIFT card opens it directly (it has its own settings and lobby). Don't edit by hand. |
 | `/customer-support/` | `customer-support/index.html`, a form that emails you through Web3Forms |
 | anything else | `404.html` |
 
@@ -25,6 +26,10 @@ git push
 
 The script reads the Unity copy (path at the top of `tools/build-docs.mjs`, or pass one as an argument), turns its video posters into real YouTube embeds, moves its embedded images into `ndvdb/img/`, and adds the site navigation. The Unity copy is not modified, so it keeps its offline-friendly posters. GitHub Pages redeploys within a minute or two of the push.
 
+## Update the arcade or the classics
+
+The cabinet and the two MR-C rebuilds come from `C:\Users\carro\Claude\Projects\Flash Game Revival`. Copy the changed file over its twin in `games/`. The cabinet here differs from the project's copy only in its head (site metadata, favicon), the home link, the ADRIFT card and the footer — carry those over if you replace `games/index.html` wholesale.
+
 ## Update ADRIFT
 
 The game is a single HTML file (`derelict.html` in the Game Prototyping project; its version is the `GAME_VERSION` constant near the top of the script, shown in the credits line). To publish a new build:
@@ -33,7 +38,7 @@ The game is a single HTML file (`derelict.html` in the Game Prototyping project;
 copy the new derelict.html over adrift\index.html
 ```
 
-then update the version in the ADRIFT card's eyebrow in `index.html` (`Prototype v16.xx`), and commit. The cover (`assets/adrift-cover.webp`, 1200×800) and link-preview image (`assets/og-adrift.jpg`, 1200×630) are screenshots of the game; replace them the same way when the look changes. The game loads its fonts from Google Fonts and, for online co-op, PeerJS from cdnjs; everything else is in the file.
+then update the version where it's shown (`index.html` home card and `games/index.html` ADRIFT card), and commit. The cover (`assets/adrift-cover.webp`, 1200×800) and link-preview image (`assets/og-adrift.jpg`, 1200×630) are screenshots of the game; replace them the same way when the look changes. The game loads its fonts from Google Fonts and, for online co-op, PeerJS from cdnjs; everything else is in the file.
 
 ## Update logos or marketing images
 
