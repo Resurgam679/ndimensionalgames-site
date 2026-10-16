@@ -123,10 +123,10 @@ let highScore = 0;
 try { highScore = parseInt(localStorage.getItem('af3hs')||'0',10)||0; } catch(e){}
 function saveHS(){ try{ localStorage.setItem('af3hs',''+highScore); }catch(e){} }
 
-// ---------- sound (owned by the arcade shell; default OFF like the original) ----------
+// ---------- sound (owned by the arcade shell; on by default) ----------
 // ?sound=on|off seeds it, postMessage updates it live, and toggling it in here
 // reports back so the shell's control stays in agreement.
-let soundOn = (new URLSearchParams(location.search).get('sound') || lsGet('fgr_sound') || 'off') === 'on';
+let soundOn = (new URLSearchParams(location.search).get('sound') || lsGet('fgr_sound') || 'on') === 'on';
 let ac = null;
 function setSound(on, tell){
   soundOn = !!on;

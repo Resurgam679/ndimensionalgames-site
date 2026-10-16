@@ -119,10 +119,10 @@ let highScore = 0;
 try { highScore = parseInt(localStorage.getItem('af3hs')||'0',10)||0; } catch(e){}
 function saveHS(){ try{ localStorage.setItem('af3hs',''+highScore); }catch(e){} }
 
-// ---------- sound (owned by the arcade shell; default OFF like the original) ----------
+// ---------- sound (owned by the arcade shell; on by default) ----------
 // ?sound=on|off seeds it, postMessage updates it live, and toggling it in here
 // reports back so the shell's control stays in agreement.
-let soundOn = (new URLSearchParams(location.search).get('sound') || lsGet('fgr_sound') || 'off') === 'on';
+let soundOn = (new URLSearchParams(location.search).get('sound') || lsGet('fgr_sound') || 'on') === 'on';
 let ac = null;
 function setSound(on, tell){
   soundOn = !!on;
@@ -1723,7 +1723,7 @@ function draw(){
       'MOUSE: move · left=shot · right=laser · middle=bomb',
       'KEYS : arrows/WASD move · Z shot · X laser · B bomb',
       'PAD  : stick move · A shot · X laser · B bomb',
-      'S: sound on/off    P: pause    Esc: arcade',
+      'M: sound on/off    P: pause    Esc: arcade',
       ''];
     lines.forEach((l,i)=>g.fillText(l, PW/2, 292+i*20));
     if(frame%60<40){ g.fillStyle='#ffee00'; g.fillText('CLICK or PRESS Z TO START', PW/2, 412); }

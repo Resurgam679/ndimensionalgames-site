@@ -132,7 +132,7 @@ function poly(pts,fill){
 /* ------------------------------------------------------------------ sound */
 /* Owned by the arcade shell: ?sound=on|off seeds it, postMessage updates it
    live, and pressing S in here reports back so the shell's toggle agrees. */
-let soundOn = (new URLSearchParams(location.search).get('sound') || lsGet('fgr_sound') || 'off') === 'on';
+let soundOn = (new URLSearchParams(location.search).get('sound') || lsGet('fgr_sound') || 'on') === 'on';
 let ac=null;
 function setSound(on, tell){
   soundOn = !!on;

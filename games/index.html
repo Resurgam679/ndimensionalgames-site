@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Browser Games — N Dimensional Games Arcade</title>
-<meta name="description" content="Three browser games from N Dimensional Games in one arcade cabinet: Jet Slalom, Area Flat 3 and ADRIFT. Nothing to install.">
+<meta name="description" content="Three browser games from N Dimensional Games in one arcade cabinet: faithful remakes of the MR-C Flash classics Jet Slalom and Area Flat 3, plus ADRIFT. Nothing to install.">
 <link rel="canonical" href="https://ndimensionalgames.com/games/">
 <link rel="icon" href="../assets/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="icon" href="../assets/favicon-192.png" sizes="192x192" type="image/png">
@@ -12,7 +12,7 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="N Dimensional Games">
 <meta property="og:title" content="Browser Games · N Dimensional Games Arcade">
-<meta property="og:description" content="Jet Slalom, Area Flat 3 and ADRIFT — three games, one cabinet, nothing to install.">
+<meta property="og:description" content="Jet Slalom and Area Flat 3, remade for the modern browser, plus ADRIFT — three games, one cabinet, nothing to install.">
 <meta property="og:url" content="https://ndimensionalgames.com/games/">
 <meta property="og:image" content="https://ndimensionalgames.com/assets/og-adrift.jpg">
 <meta name="twitter:card" content="summary_large_image">
@@ -165,7 +165,7 @@ footer{margin-top:20px;font-size:10.5px;color:#495a78;letter-spacing:.1em;text-a
 <!-- ================================ menu ================================= -->
 <div id="menu">
   <h1>Arcade</h1>
-  <div class="sub">two rescued classics · one new ship · one cabinet</div>
+  <div class="sub">two remakes of MR-C classics · one new ship · one cabinet</div>
 
   <div class="cards">
     <button class="card" data-game="jet-slalom.html" data-name="Jet Slalom"
@@ -194,8 +194,9 @@ footer{margin-top:20px;font-size:10.5px;color:#495a78;letter-spacing:.1em;text-a
         </g>
       </svg>
       <div class="body">
-        <h2>Jet Slalom</h2>
-        <p>Skim the deck through procedurally grown pyramid fields. Bulkheads,
+        <h2>Jet Slalom<span class="tag">remake</span></h2>
+        <p>A faithful remake of MR-C's Flash original, rebuilt from scratch for the
+           modern browser. Skim the deck through procedurally grown pyramid fields. Bulkheads,
            chicanes, spire storms and long snaking canyon runs — grown fresh every
            time and guaranteed to have a way through. Graze the rock for bonus.</p>
         <div class="meta"><span>Hi-score <b class="hs">—</b></span><span class="play">PLAY ▶</span></div>
@@ -243,8 +244,8 @@ footer{margin-top:20px;font-size:10.5px;color:#495a78;letter-spacing:.1em;text-a
         <rect x="112" y="60" width="4" height="44" fill="#ffee00"/>
       </svg>
       <div class="body">
-        <h2>Area Flat 3</h2>
-        <p>Vertical shooter across eight shifting landscapes — plains, coastline,
+        <h2>Area Flat 3<span class="tag">remake</span></h2>
+        <p>A remake of MR-C's Flash original. Vertical shooter across eight shifting landscapes — plains, coastline,
            ice shelf, open ocean, caldera. Feed it power-ups and both your weapons
            grow into something else entirely. Five very different bosses wait at
            the ends of the areas.</p>
@@ -318,7 +319,7 @@ footer{margin-top:20px;font-size:10.5px;color:#495a78;letter-spacing:.1em;text-a
       real pixel density — clean vector edges, no stair-stepping.
       <b style="color:var(--ink)">Crunchy</b> draws at the original internal resolution
       and blows it up with nearest-neighbour, keeping the fat authentic pixels.
-      Settings apply live, mid-run — sound included, and pressing <code>S</code>
+      Sound is on by default; settings apply live, mid-run — sound included, and pressing <code>M</code>
       inside a game keeps this in sync. <code>Esc</code> returns here.
       <b style="color:var(--ink)">Touch</b> launches the thumb-controlled build of
       Area Flat 3 — drag to fly, the gun fires itself, laser and bomb under your right
@@ -333,7 +334,7 @@ footer{margin-top:20px;font-size:10.5px;color:#495a78;letter-spacing:.1em;text-a
     </p>
   </div>
 
-  <footer>Jet Slalom &amp; Area Flat 3: originals by MR-C, rebuilt for the modern browser ·
+  <footer>Jet Slalom &amp; Area Flat 3: remakes of the MR-C originals, rebuilt from scratch for the modern browser ·
     ADRIFT: created with Claude Code, design by James Carroll &amp; Michael Arens ·
     <a href="../">ndimensionalgames.com</a></footer>
 </div>
@@ -347,7 +348,7 @@ function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
 
 let SIZE  = ls('fgr_size','fit');
 let STYLE = ls('fgr_style','sharp');
-let SOUND = ls('fgr_sound','off') === 'on';
+let SOUND = ls('fgr_sound','on') === 'on';   // on by default; an explicit choice sticks
 // default to touch on a coarse pointer, but never override an explicit choice
 let PADON = ls('fgr_pad','on') === 'on';
 /* Jet Slalom's pace. Relaxed is not an easy mode — same world, same obstacles,
