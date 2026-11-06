@@ -4,7 +4,7 @@
 //     opened from disk can't embed videos) into a real YouTube embed
 //   - moves every embedded base64 image into ndvdb/img/<content-hash>.<ext>, so the
 //     page is ~140 KB instead of ~16 MB and images load lazily and cache individually
-//   - adds site navigation (Home / Support), a favicon and link-preview tags
+//   - adds site navigation (Home / Asset Store / Support), a favicon and link-preview tags
 //   - adds the notice in tools/docs-notice.html above every page, if that file exists
 // The Unity copy is never modified, so it keeps working offline.
 //
@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url';
 
 const DEFAULT_SOURCE = 'D:/UnityProjects/NDVDBURP/Assets/NDimensionalGames/VDBImporter/Documentation/Documentation.html';
 const PAGE_URL = 'https://ndimensionalgames.com/ndvdb/';
+const STORE_URL = 'https://assetstore.unity.com/packages/tools/particles-effects/ndvdb-cinematic-openvdb-importer-real-time-renderer-393076';
 const PREVIEW_IMAGE = 'https://ndimensionalgames.com/assets/og-ndvdb.jpg'; // made by tools/make-images.py
 const EXT = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' };
 
@@ -82,11 +83,12 @@ const head = `<!-- added by tools/build-docs.mjs -->
 </style>
 `;
 
-const topbarLinks = `<nav class="site-links" aria-label="Site"><a href="../">Home</a><a href="../customer-support/">Support</a></nav>
+const topbarLinks = `<nav class="site-links" aria-label="Site"><a href="../">Home</a><a href="${STORE_URL}" target="_blank" rel="noopener">Asset Store</a><a href="../customer-support/">Support</a></nav>
   `;
 
 const sidebarLinks = `
     <div class="nav-group">Help</div>
+    <a href="${STORE_URL}" target="_blank" rel="noopener"><span class="ico">↗</span>Get it on the Asset Store</a>
     <a href="../customer-support/"><span class="ico">✉</span>Customer Support</a>
     <a href="../"><span class="ico">⌂</span>N Dimensional Games</a>
   `;

@@ -65,10 +65,10 @@
           <p class="muted">Import and play your own OpenVDB sequences as real-time lit volumetrics: smoke, fire and explosions that composite correctly with each other, your scene and your water.</p>
           <div class="pills"><span class="pill">Unity 6 · URP 17+</span><span class="pill">Plays on Windows · Linux · macOS</span><span class="pill">Full C# &amp; shader source</span></div>
           <div class="ctas">
-            <a class="btn primary" href="ndvdb/">Documentation →</a>
+            <a class="btn primary" href="https://assetstore.unity.com/packages/tools/particles-effects/ndvdb-cinematic-openvdb-importer-real-time-renderer-393076" target="_blank" rel="noopener">Get it on the Asset Store →</a>
+            <a class="btn" href="ndvdb/">Documentation</a>
             <a class="btn" href="ndvdb/#getting-started">Getting started</a>
             <a class="btn" href="https://youtu.be/uymRMpNolWY" target="_blank" rel="noopener">▶ Watch the overview</a>
-            <!-- Once NDVDB is listed: <a class="btn" href="ASSET-STORE-URL">Get it on the Asset Store</a> -->
           </div>
         </div>
         <ul class="features">
@@ -108,7 +108,7 @@
   <section class="section" id="roadmap">
     <div class="wrap">
       <h2 class="section-title">Roadmap</h2>
-      <p class="roadmap-intro">What is coming to NDVDB after 1.0, in priority order. Both items below are in testing now and will be released as soon as the Unity Asset Store approves the update.</p>
+      <p class="roadmap-intro">What is coming to NDVDB after 1.0, in priority order. The first two are in testing now and will be released as soon as the Unity Asset Store approves the update; the rest are planned.</p>
       <ul class="roadmap">
         <li>
           <span class="status-tag testing">In testing</span>
@@ -121,6 +121,23 @@
           <h3>32 volumes composited at once</h3>
           <p>The compositor currently marches up to eight volumes jointly in view; past that, extra effects still render, but without joint overlap or cross-volume lighting. A scene-wide brick pool removes the per-shader texture limit behind that ceiling, and the update raises it to 32.</p>
           <p>Cost follows what is on screen, not how many effects exist: each ray marches only the volumes it actually crosses, and cross-volume shadows test only the volumes that can stand between a volume and each light. The shared pool also keeps GPU memory to the bricks in use, and brings the compositor to OpenGL Core.</p>
+        </li>
+        <li>
+          <span class="status-tag planned">Planned</span>
+          <h3>Liquid VDB sequences</h3>
+          <p>NDVDB imports density volumes today: smoke, fire and explosions. Liquid simulations are exported differently, as an animated surface (a level set) rather than a density field, so they need their own import path and their own way to render.</p>
+          <p>This adds both: animated liquid VDBs from Houdini, Blender and other DCCs, played back in real time and lit alongside your smoke, fire and water.</p>
+        </li>
+        <li>
+          <span class="status-tag planned">Planned</span>
+          <h3>Real-time FX</h3>
+          <p>Everything NDVDB plays today is simulated ahead of time in your DCC and streamed back. Real-time FX adds effects that run live in the engine, with parameters you can change while the game is running, so an effect can react to gameplay instead of replaying the same way every time.</p>
+        </li>
+        <li>
+          <span class="status-tag planned">Planned</span>
+          <h3>FX Director</h3>
+          <p>NDVDB plays from a native Timeline track today, but not every team sequences in Timeline. The FX Director adds NDVDB's own stack for directing a shot: cue effects, time-remap and layer them, and set their look from one place, with or without Timeline and alongside the cinematic tools you already use.</p>
+          <p>Designed to be easy to pick up from the start, for artists as much as programmers.</p>
         </li>
       </ul>
       <p class="roadmap-note">Missing something? <a href="customer-support/">Tell us what your shots need →</a></p>
