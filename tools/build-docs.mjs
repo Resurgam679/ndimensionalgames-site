@@ -5,6 +5,7 @@
 //   - moves every embedded base64 image into ndvdb/img/<content-hash>.<ext>, so the
 //     page is ~140 KB instead of ~16 MB and images load lazily and cache individually
 //   - adds site navigation (Home / Support), a favicon and link-preview tags
+//   - adds the notice in tools/docs-notice.html above every page, if that file exists
 // The Unity copy is never modified, so it keeps working offline.
 //
 // Usage:  node tools/build-docs.mjs [path/to/Documentation.html]
@@ -109,6 +110,15 @@ const sidebar = html.indexOf('<nav class="sidebar"');
 const sidebarEnd = sidebar < 0 ? -1 : html.indexOf('</nav>', sidebar);
 insertAt('the end of the sidebar nav', sidebarEnd < 0 ? -1 : html.lastIndexOf('</div>', sidebarEnd), sidebarLinks);
 if (videos) insertAt('</body>', html.lastIndexOf('</body>'), videoFixups);
+
+// Optional site-only notice above every page (e.g. "an update is in testing"):
+// the HTML in tools/docs-notice.html. Delete that file to remove the notice.
+const noticeFile = path.join(root, 'tools', 'docs-notice.html');
+if (fs.existsSync(noticeFile)) {
+  const mainTag = html.match(/<main\b[^>]*>/);
+  insertAt('<main>', mainTag ? mainTag.index + mainTag[0].length : -1,
+           '\n<!-- added by tools/build-docs.mjs from tools/docs-notice.html -->\n' + fs.readFileSync(noticeFile, 'utf8'));
+}
 
 fs.writeFileSync(path.join(outDir, 'index.html'), html);
 

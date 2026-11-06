@@ -108,19 +108,19 @@
   <section class="section" id="roadmap">
     <div class="wrap">
       <h2 class="section-title">Roadmap</h2>
-      <p class="roadmap-intro">What is coming to NDVDB after 1.0, in priority order. Dates are announced once a feature has passed testing.</p>
+      <p class="roadmap-intro">What is coming to NDVDB after 1.0, in priority order. Both items below are in testing now and will be released as soon as the Unity Asset Store approves the update.</p>
       <ul class="roadmap">
         <li>
-          <span class="status-tag dev">In development</span>
+          <span class="status-tag testing">In testing</span>
           <h3>Converting on macOS and Linux</h3>
           <p>Converted assets already play on Windows, Linux and macOS, but today the converter itself runs in the Unity Editor on Windows x64. The OpenVDB reader is being built natively for macOS (Apple Silicon and Intel, signed and notarized) and Linux x86_64, so a whole team can import sequences on the machines they already use.</p>
           <p>Every build is checked against the Windows converter: the same sequence has to produce the same data on all three.</p>
         </li>
         <li>
-          <span class="status-tag planned">Planned</span>
-          <h3>Effect count that scales with your GPU</h3>
-          <p>The compositor marches up to eight volumes jointly in view. Past that, extra effects still render, but without joint overlap or cross-volume lighting. That ceiling comes from the engine's per-shader texture limit, not from your graphics card.</p>
-          <p>A shared brick atlas removes it, turning the number of jointly composited effects into a quality setting picked from your graphics memory, with an Auto option.</p>
+          <span class="status-tag testing">In testing</span>
+          <h3>32 volumes composited at once</h3>
+          <p>The compositor currently marches up to eight volumes jointly in view; past that, extra effects still render, but without joint overlap or cross-volume lighting. A scene-wide brick pool removes the per-shader texture limit behind that ceiling, and the update raises it to 32.</p>
+          <p>Cost follows what is on screen, not how many effects exist: each ray marches only the volumes it actually crosses, and cross-volume shadows test only the volumes that can stand between a volume and each light. The shared pool also keeps GPU memory to the bricks in use, and brings the compositor to OpenGL Core.</p>
         </li>
       </ul>
       <p class="roadmap-note">Missing something? <a href="customer-support/">Tell us what your shots need →</a></p>

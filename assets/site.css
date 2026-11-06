@@ -97,6 +97,7 @@ p { margin: .8rem 0; }
   font-size: .72rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
 .status-tag.dev { background: var(--accent-dim); color: var(--accent-2); }
 .status-tag.planned { border-color: var(--line); color: var(--fg-2); }
+.status-tag.testing { background: color-mix(in srgb, var(--ok) 15%, transparent); color: color-mix(in srgb, var(--ok) 70%, var(--fg)); }
 
 .band { border-top: 1px solid var(--line); background: var(--bg-2); }
 .band .wrap { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px; padding-top: 40px; padding-bottom: 40px; }

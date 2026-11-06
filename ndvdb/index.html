@@ -269,6 +269,9 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
 
 <!-- ═══════════════════════════ MAIN ═══════════════════════════ -->
 <main id="main">
+<!-- added by tools/build-docs.mjs from tools/docs-notice.html -->
+<div class="callout note site-notice"><span class="ci">i</span><p><b>An NDVDB update is in testing.</b> These pages already describe it: up to 32 volumes composited at once, with each ray marching only the volumes it crosses; a shared brick pool that uses far less GPU memory; and the scene compositor on OpenGL Core. It will be released as soon as the Unity Asset Store approves it. Until then, the current version composites up to 8 volumes in view.</p></div>
+
 
 <section id="searchResults"></section>
 
@@ -310,10 +313,10 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
   <h2 id="ov-req">Requirements</h2>
   <div class="tablewrap"><table>
     <tr><th>Unity</th><td>6000.x with the Universal Render Pipeline (URP 17+). The compositor is built on RenderGraph.</td></tr>
-    <tr><th>Packages</th><td><code>com.unity.render-pipelines.universal</code> and <code>com.unity.timeline</code>. Both assemblies reference Timeline directly, so the package must be installed even in projects that never use a Timeline; the store import adds it when it is missing, and the Package Manager lists it under Unity Registry otherwise.</td></tr>
-    <tr><th>GPU</th><td>Compute-capable desktop GPU. D3D12, Vulkan or Metal.</td></tr>
+    <tr><th>Packages</th><td><code>com.unity.render-pipelines.universal</code>. <code>com.unity.timeline</code> is optional: the NDVDB Timeline track lives in its own assemblies that compile only when Timeline is installed, and everything else works without it. <b>Tools ▸ NDVDB ▸ Setup</b> offers an <b>Install Timeline</b> button when it is missing.</td></tr>
+    <tr><th>GPU</th><td>Compute-capable desktop GPU. D3D12, Vulkan, Metal or OpenGL Core.</td></tr>
     <tr><th>Platforms</th><td>Windows, Linux and macOS standalone. Mobile and console are not supported in this release.</td></tr>
-    <tr><th>Converting</th><td>The Converter runs in the Unity Editor on Windows x64 only: the OpenVDB reader ships as Windows DLLs, editor-only and never part of a build. Playback has no native dependency, so a team on Mac or Linux converts on one Windows machine and copies the imported folder (the <code>.ndvdb</code>, its prefab and their <code>.meta</code> files) into the project. On other editors the Converter window says so instead of opening.</td></tr>
+    <tr><th>Converting</th><td>The Converter runs in the Unity Editor on Windows x64, macOS (Apple Silicon and Intel) and Linux x86_64. The OpenVDB reader is a native library per platform under <code>NDimensionalGames/Plugins</code>, editor-only and never part of a build; every build is checked against the Windows one, so the same sequence converts to the same bytes on all three. Playback has no native dependency, so an imported folder (the <code>.ndvdb</code>, its prefab and their <code>.meta</code> files) can also be copied between machines. If the library for the current editor is missing or disabled, the Converter window says which file it expects instead of opening.</td></tr>
     <tr><th>Pipelines</th><td>The compositor and water integration are URP-only. An experimental HDRP subshader ships for per-volume playback and is unofficial.</td></tr>
   </table></div>
 
@@ -335,7 +338,7 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
 
   <ol class="steps">
     <li><b>Import the package</b><p>Import NDVDB into a Unity 6000.x project that uses URP. The package contains the runtime, editor tooling, shaders, and this documentation under <code>Assets/NDimensionalGames/VDBImporter</code>.</p></li>
-    <li><b>Run NDVDB Setup</b><p>Open <code>Tools ▸ NDVDB ▸ Setup</code>. It checks that URP is active, that every URP renderer has the <b>NDVDB Composite</b> renderer feature, and that the depth texture is enabled. Each item has a one-click fix, or use <b>Fix All Renderers</b>.</p></li>
+    <li><b>Run NDVDB Setup</b><p>Open <code>Tools ▸ NDVDB ▸ Setup</code>. It checks that URP is active, that every URP renderer has the <b>NDVDB Composite</b> renderer feature, that the depth texture is enabled and copied <b>After Opaques</b>, and whether Timeline is installed. Each item has a one-click fix, or use <b>Fix All Renderers</b>.</p></li>
     <li><b>Convert a VDB sequence</b><p>Open <code>Tools ▸ NDVDB ▸ Converter</code>, point it at your <code>.vdb</code> folder, pick a quality tier and map grid roles. <b>Convert &amp; Import</b> writes an <code>.ndvdb</code> asset and hands you a prefab with an <b>NDVDB Player</b> already configured. See <a href="#converter">Converting VDBs</a>.</p></li>
     <li><b>Drop the prefab in the scene</b><p>Place it, scale it if needed, and press Play. The first frame streams instantly; the IO thread reads ahead while you watch. In the editor you can scrub without entering Play mode via the player's <b>Preview Controls</b>.</p></li>
     <li><b>Light it</b><p>Your directional light drives self-shadowing and scene shadows. Point and spot lights light the smoke automatically. If the sim has a flame grid, it glows with blackbody colour and can optionally emit lights. See <a href="#lighting">Lighting &amp; Fire</a>.</p></li>
@@ -500,7 +503,6 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
     <tr><th>Setting</th><th>Meaning</th></tr>
     <tr><td><code>Stream Lookahead</code> <span class="def">16</span></td><td>Frames the IO thread decodes ahead of the playhead. Raise for very large frames or slow disks.</td></tr>
     <tr><td><code>Max Cache Ram MB</code> <span class="def">0 = unlimited</span></td><td>Upper bound for the decoded-frame cache. At 0 the whole sequence stays resident once streamed, so scrubbing, looping and Timeline never touch disk again. Set a budget when many large sequences play together: frames farthest behind the playhead are evicted first and re-stream on the next pass; the playhead and lookahead window are never evicted.</td></tr>
-    <tr><td><code>Use Sparse Atlas</code> <span class="def">on</span></td><td>Upload only occupied bricks into a shared atlas with an indirection table. Off falls back to a dense 3D texture per volume.</td></tr>
     <tr><td><code>Enable Empty Space Skip</code> <span class="def">on</span></td><td>The march walks an occupancy grid and skips empty bricks.</td></tr>
   </table></div>
   <p>The <b>Frame Cache</b> section shows resident frames, the IO queue depth and the memory in use, so you can size the budget against your target machine.</p>
@@ -587,7 +589,7 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
     <tr><td><code>Max Additional Lights Per Sample</code></td><td>0 – 8 <span class="def">4</span></td><td>Cap on point/spot lights evaluated per sample.</td></tr>
     <tr><td><code>Additional Light Scatter Multiplier</code></td><td>0 – 4 <span class="def">1</span></td><td>Scales how strongly additional lights scatter in the smoke.</td></tr>
     <tr><td><code>Additional Light Shadow Steps</code></td><td>0 – 16 <span class="def">0</span></td><td>Cheaper occlusion march for point/spot lights inside the smoke. 0 uses <code>Shadow Steps</code>. A value of 2 to 4 keeps the shading and removes most of the cost.</td></tr>
-    <tr><td><code>Depth Fade Distance</code></td><td>0.0001 – 5 <span class="def">0.5</span></td><td>Soft blend where the volume meets opaque geometry.</td></tr>
+    <tr><td><code>Depth Blending</code> / <code>Depth Fade Distance</code> / <code>Hard Occlusion</code></td><td>toggle / 0.0001 – 5 <span class="def">0.5</span> / toggle</td><td>Per-volume drawing only (no compositor slot, Layout proxies). With <code>Depth Blending</code> on, smoke within <code>Depth Fade Distance</code> of opaque geometry thins to transparent; <code>Hard Occlusion</code> cuts it instead. While the compositor owns the volume these three are ignored and the feature's <code>Soft Depth Fade</code> applies.</td></tr>
     <tr><td><code>Flame Emission Tint</code> / <code>Flame Emission Gain</code></td><td>HDR colour / 0 – 8</td><td>Colour and gain of the glow this fire casts on smoke through the compositor's Flame Emission. Does not change how the fire itself renders.</td></tr>
   </table></div>
 
@@ -605,7 +607,7 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
   <figure class="media" data-embed="https://www.youtube-nocookie.com/embed/j98-FwWmFgk" data-caption="Two volumes interpenetrating. First with the joint march, where both volumes interleave per pixel, then with per-object transparency sorting, where the overlap pops as the sort order flips."></figure>
 
   <h2 id="cp-why">Why a joint march</h2>
-  <p>Drawing each volume as its own transparent object breaks the moment two effects overlap, because a whole object must be either in front of or behind another. The compositor instead gathers up to eight visible volumes per frame and marches them together, so at every sample along a ray it knows the density of all of them. Overlap, interpenetration and cross-volume shadows fall out naturally. Volumes beyond the eight slots render through the per-volume fallback path, with a one-time warning in the Console.</p>
+  <p>Drawing each volume as its own transparent object breaks the moment two effects overlap, because a whole object must be either in front of or behind another. The compositor instead gathers up to 32 visible volumes per frame and marches them together, so at every sample along a ray it knows the density of all of them. Overlap, interpenetration and cross-volume shadows fall out naturally. Each ray marches only the volumes whose bounds it actually crosses, so a crowded scene costs no more per pixel than the volumes stacked behind that pixel. Volumes beyond the 32 slots render through the per-volume fallback path, with a one-time warning in the Console.</p>
 
   <h2 id="cp-pipeline">What happens each frame</h2>
   <ol class="steps">
@@ -621,7 +623,7 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
     <tr><th>Setting</th><th>Default</th><th>Meaning</th></tr>
     <tr><td><code>Step Size</code></td><td>0.05</td><td>World-space march step. The march adapts it to the occupied length along each ray, so this is a baseline, not a fixed cost.</td></tr>
     <tr><td><code>Max Steps</code></td><td>256</td><td>Per-ray cap.</td></tr>
-    <tr><td><code>Soft Depth Fade</code></td><td>0.15</td><td>Soft blend against opaque geometry, in world units.</td></tr>
+    <tr><td><code>Soft Depth Fade</code></td><td>0.15</td><td>Soft-particle fade against opaque geometry, in world units: smoke within this height above a surface thins to transparent, colour and coverage together. The height is measured perpendicular to the surface, so a floor seen at a glancing angle fades as evenly as a wall seen head-on. Size it to the effect, metres for a large plume. The material's <code>Depth Fade Distance</code> is ignored while a volume is composited.</td></tr>
     <tr><td><code>Half Resolution</code></td><td>on</td><td>Trace at half resolution and upsample with depth guidance. Visually indistinguishable on most smoke, roughly a quarter of the cost.</td></tr>
     <tr><td><code>Temporal Accumulation</code> / <code>Temporal Feedback</code></td><td>on / 0.88</td><td>Blend with history to remove step noise. Higher feedback is smoother and slower to respond.</td></tr>
   </table></div>
@@ -653,9 +655,9 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
   <p>The <a href="#performance">Performance Guide</a> explains what each of these costs and which to trade first.</p>
 
   <h2 id="cp-culling">Culling and the slot pool</h2>
-  <p>The compositor has eight slots per frame, and a Surface Split volume takes two. With <code>Frustum Culling</code> on, only volumes whose bounds intersect the camera's view compete for them, so a scene can hold as many placed effects as the shot needs as long as no more than eight slots' worth are in view at once. The test uses a slightly wider frustum than the camera plus <code>Cull Margin</code>, so a volume is composited a step before its edge enters frame and its temporal history is primed.</p>
+  <p>The compositor has 32 slots per frame, and a Surface Split volume takes two. With <code>Frustum Culling</code> on, only volumes whose bounds intersect the camera's view compete for them, so a scene can hold as many placed effects as the shot needs as long as no more than 32 slots' worth are in view at once. The test uses a slightly wider frustum than the camera plus <code>Cull Margin</code>, so a volume is composited a step before its edge enters frame and its temporal history is primed.</p>
   <p><b>Reveals never hitch.</b> An off-screen player keeps streaming and keeps its GPU data current; it simply holds no slot and builds no light or emission cache while unseen. When the camera pans onto it, nothing has to be rebuilt. The player inspector shows "off screen" while this is the case.</p>
-  <p><b>When more than eight are in view</b>, the player's <code>Composite Priority</code> decides who keeps a slot: higher wins, ties go to volumes already composited, then to the nearer one. The rest render through the per-volume path until the shot clears, and the Console says so once. Give a shot's hero effect a higher priority than its set dressing.</p>
+  <p><b>When more than 32 are in view</b>, the player's <code>Composite Priority</code> decides who keeps a slot: higher wins, ties go to volumes already composited, then to the nearer one. The rest render through the per-volume path until the shot clears, and the Console says so once. Give a shot's hero effect a higher priority than its set dressing.</p>
   <p><b>Pinning.</b> A player's <code>Always Composite</code> keeps that volume in the compositor even while it is off screen: it always holds a slot and keeps its caches warm, so a camera moving faster than the reveal margin can never catch it between the per-volume path and the compositor. Pinned volumes win slot contention outright. It costs one slot while unseen, two for Surface Split, so reserve it for the hero effects of fast shots.</p>
   <div class="tablewrap"><table>
     <tr><th>Setting</th><th>Default</th><th>Meaning</th></tr>
@@ -711,7 +713,7 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
   </ul>
   <div class="tablewrap"><table>
     <tr><th>Feature setting</th><th>Default</th><th>Meaning</th></tr>
-    <tr><td><code>Flame Emission</code></td><td>off</td><td>Enable the cone-traced fire light. Needs a flame grid on at least one volume. Dense and sparse-atlas volumes both work.</td></tr>
+    <tr><td><code>Flame Emission</code></td><td>off</td><td>Enable the cone-traced fire light. Needs a flame grid on at least one composited volume.</td></tr>
     <tr><td><code>Flame Emission Strength</code></td><td>1</td><td>Overall gain, 0 to 8. 1 is the fire's own rendered radiance integrated over the sky as seen from the smoke.</td></tr>
     <tr><td><code>Flame Emission Self</code></td><td>0.1</td><td>Weight of a volume's own fire on its own smoke, 0 to 4. Inside a fireball the smoke is lit from every direction, so 1 blows the source out toward white.</td></tr>
     <tr><td><code>Flame Emission Neighbours</code></td><td>1</td><td>Weight of neighbouring volumes' fire on this smoke, 0 to 8. A neighbour sees the fire under a small solid angle, so this wants far more than Self.</td></tr>
@@ -766,7 +768,7 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
     <tr><td><b>Depth Sorted</b> <span class="def">default</span></td><td>The effect never touches water, or sits fully on one side.</td><td>Sorts against water by depth like any transparent. Cheapest.</td></tr>
     <tr><td><b>Show Above</b></td><td>The effect is above the surface but its bounds dip below it.</td><td>Marches only the part above the water and presents it on the correct side of the water pass.</td></tr>
     <tr><td><b>Show Below</b></td><td>The effect is underwater.</td><td>Marches only the part below the water; the water's own refraction distorts it.</td></tr>
-    <tr><td><b>Surface Split</b></td><td>Breaches: launches, impacts, dives.</td><td>Marches both halves and presents each on its side. The most complete, and the most expensive: it uses two of the compositor's eight slots.</td></tr>
+    <tr><td><b>Surface Split</b></td><td>Breaches: launches, impacts, dives.</td><td>Marches both halves and presents each on its side. The most complete, and the most expensive: it uses two of the compositor's 32 slots.</td></tr>
   </table></div>
 
   <h2 id="wt-detect">Water detection (no component needed)</h2>
@@ -885,7 +887,7 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
   <p>One overlay in the Scene view carries everything you need while working: docked in the toolbar it is a compact strip, floated or docked to a side it expands into a dashboard with the same three sections.</p>
   <ul>
     <li><b>Layout.</b> The level buttons and the Auto toggle.</li>
-    <li><b>Compositor</b> (settings icon). A live status line, "N of 8 slots, M in view, K off screen, tier", plus the feature's day-to-day levers without leaving the Scene view: Frustum Culling and Light Cache; Quality with Half Resolution, Temporal Accumulation, Temporal Feedback and Step Size; Flame Emission with its Strength, Self and Neighbours sliders; Water with Match Water Fog, Wave Exact Split and Wave Crest Compensation; the two debug views and a one-shot water routing log. Every change is undoable, one undo step per drag, and saved on the renderer feature.</li>
+    <li><b>Compositor</b> (settings icon). A live status line, "N of 32 slots, M in view, K off screen, up to 4 or 8 per ray", plus the feature's day-to-day levers without leaving the Scene view: Frustum Culling and Light Cache; Quality with Half Resolution, Temporal Accumulation, Temporal Feedback and Step Size; Flame Emission with its Strength, Self and Neighbours sliders; Water with Match Water Fog, Wave Exact Split and Wave Crest Compensation; the two debug views and a one-shot water routing log. Every change is undoable, one undo step per drag, and saved on the renderer feature.</li>
     <li><b>Players</b> (memory icon; the button itself shows slots in use and the off-screen count). A table of every player in the open scenes: state (composited, off screen, per-volume, proxy, disabled), current frame, frame-cache RAM, GPU memory, and a Pin toggle for Always Composite. Click a name to select the player. Totals at the bottom.</li>
   </ul>
   <p>The footer opens Setup, the Converter, and this documentation.</p>
@@ -922,7 +924,7 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
   <h2 id="pf-memory">Memory</h2>
   <ul>
     <li><b>RAM.</b> <code>Max Cache Ram MB</code> caps decoded frames. The Frame Cache section of the player shows use. Sequences that fit stay resident.</li>
-    <li><b>VRAM.</b> Each enabled player holds an atlas slot sized to its densest frame. Disabled players hold nothing.</li>
+    <li><b>VRAM.</b> Streaming volumes share one brick pool that grows to fit the bricks in use (the NDVDB dashboard shows its size). Disabled players hold nothing.</li>
     <li><b>Off-screen players</b> take no compositor slot and build no caches, but keep their frame cache and GPU data current so they can enter frame without a hitch. Use Timeline Activation or disable them to release the memory itself.</li>
   </ul>
 
@@ -963,7 +965,7 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
   <div class="tablewrap"><table>
     <tr><th>Platform</th><th>API</th><th>Status</th></tr>
     <tr><td>Windows</td><td>D3D12, Vulkan</td><td>Supported</td></tr>
-    <tr><td>Linux</td><td>Vulkan</td><td>Supported</td></tr>
+    <tr><td>Linux</td><td>Vulkan, OpenGL Core</td><td>Supported</td></tr>
     <tr><td>macOS</td><td>Metal</td><td>Supported</td></tr>
     <tr><td>Mobile, console, WebGPU</td><td>—</td><td>Not supported in this release</td></tr>
   </table></div>
@@ -981,13 +983,15 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
 <article class="page" data-page="troubleshooting" data-title="Troubleshooting">
   <div class="eyebrow">Ship it</div>
   <h1>Troubleshooting</h1>
-  <p class="lede">Start with <code>Tools ▸ NDVDB ▸ Setup</code>. It catches the three causes of "nothing renders" and fixes them with one click. If a problem survives this page, reach us at <a href="https://ndimensionalgames.com/customer-support/" target="_blank" rel="noopener">ndimensionalgames.com/customer-support</a> with the Console log, your Unity and URP versions, and the exporter the VDB came from.</p>
+  <p class="lede">Start with <code>Tools ▸ NDVDB ▸ Setup</code>. It catches the common causes of "nothing renders" and fixes them with one click. If a problem survives this page, reach us at <a href="https://ndimensionalgames.com/customer-support/" target="_blank" rel="noopener">ndimensionalgames.com/customer-support</a> with the Console log, your Unity and URP versions, and the exporter the VDB came from.</p>
 
   <details open><summary>Nothing renders, or the volume is a flat box</summary>
     <ul>
       <li>URP is not the active pipeline. Assign a URP asset in <b>Project Settings ▸ Graphics</b>.</li>
       <li>The renderer has no NDVDB Composite feature. Run Setup, or check <b>Playback Readiness</b> on the player.</li>
       <li>The depth texture is off. Setup's <b>Enable Depth Texture</b> fixes it.</li>
+      <li>The renderer's <b>Depth Texture Mode</b> is <b>After Transparents</b>, URP's default for new projects. Volumes drawn per-volume then read a stale depth texture and clip to nothing. Setup's <b>After Opaques</b> button fixes it.</li>
+      <li>The camera sits inside the volume. Converted prefabs use the VDB's own units as metres, so a sim exported in centimetres arrives hundreds of metres wide; the Converter warns about this. Scale the instance by 0.01, or move the camera back.</li>
       <li>Layout Mode is at Bounds Only or Brick. Check the Scene view overlay.</li>
     </ul>
   </details>
@@ -1002,6 +1006,9 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
   </details>
   <details><summary>Particles or glass draw on top of the smoke they should be behind</summary>
     <p>Enable <code>Transparents Depth Occlusion</code> and lower <code>Depth Occlusion Coverage</code> so wispier smoke counts as an occluder. Also confirm the transparent material writes and tests depth as expected.</p>
+  </details>
+  <details><summary>The material's Depth Fade Distance does nothing</summary>
+    <p>While the compositor owns a volume, the material's <code>Depth Blending</code>, <code>Depth Fade Distance</code> and <code>Hard Occlusion</code> are ignored. Use <code>Soft Depth Fade</code> on the NDVDB Composite renderer feature instead. It is in world units, so size it to the effect: smoke within that height above opaque geometry thins to transparent, colour and coverage together, and the band is the same height on floors and walls.</p>
   </details>
   <details><summary>A Houdini or Maya export lies on its side</summary>
     <p>Those applications are Y-up. Re-convert with <code>Source Up Axis</code> on Auto (it reads the Houdini creator tag) or Y-up, or rotate the GameObject −90° about X for an asset already converted as Z-up.</p>
@@ -1072,7 +1079,7 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
     <tr><th>Group</th><th>Setting</th><th>Default</th><th>Notes</th></tr>
     <tr><td rowspan="3">Quality</td><td><code>Step Size</code></td><td>0.05</td><td>0.005 – 1, world units</td></tr>
     <tr><td><code>Max Steps</code></td><td>256</td><td>32 – 1024</td></tr>
-    <tr><td><code>Soft Depth Fade</code></td><td>0.15</td><td>0 – 2</td></tr>
+    <tr><td><code>Soft Depth Fade</code></td><td>0.15</td><td>0 – 10, world units</td></tr>
     <tr><td rowspan="4">Shadows</td><td><code>Cross Volume Shadows</code></td><td>on</td><td></td></tr>
     <tr><td><code>Cross Shadow Taps</code></td><td>4</td><td>2 – 8</td></tr>
     <tr><td><code>Cross Shadow Strength</code></td><td>1</td><td>0 – 4</td></tr>
@@ -1113,8 +1120,7 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
     <tr><td><code>Play On Start</code> / <code>Play On Enable</code></td><td>on / off</td></tr>
     <tr><td rowspan="2">Material</td><td><code>Material Template</code></td><td>—</td></tr>
     <tr><td><code>Instance Material</code></td><td>on</td></tr>
-    <tr><td rowspan="4">Data</td><td><code>Use Sparse Atlas</code></td><td>on</td></tr>
-    <tr><td><code>Enable Empty Space Skip</code></td><td>on</td></tr>
+    <tr><td rowspan="3">Data</td><td><code>Enable Empty Space Skip</code></td><td>on</td></tr>
     <tr><td><code>Stream Lookahead</code></td><td>16</td></tr>
     <tr><td><code>Max Cache Ram MB</code></td><td>0 (unlimited)</td></tr>
     <tr><td rowspan="3">Placement</td><td><code>Use VDB Origin</code></td><td>off</td></tr>
@@ -1201,7 +1207,7 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
   <div class="eyebrow">Reference</div>
   <h1>FAQ &amp; Limits</h1>
 
-  <details open><summary>How many volumes can be on screen?</summary><p>Eight compositor slots per frame, in view at once; a volume in <b>Surface Split</b> water mode uses two. Because off-screen volumes are culled from the slots, a scene can hold any number of placed effects. When more than eight slots' worth are in view, <code>Composite Priority</code> on the player decides who keeps a slot and the rest render through the per-volume path, with a one-time Console warning. The shader compiles a 4-slot variant for the common case and switches to the 8-slot variant only when more are gathered.</p></details>
+  <details open><summary>How many volumes can be on screen?</summary><p>32 compositor slots per frame, in view at once; a volume in <b>Surface Split</b> water mode uses two. Because off-screen volumes are culled from the slots, a scene can hold any number of placed effects. When more than 32 slots' worth are in view, <code>Composite Priority</code> on the player decides who keeps a slot and the rest render through the per-volume path, with a one-time Console warning.</p><p>Each pixel marches only the volumes its ray passes through: up to 4 while at most 4 volumes are gathered, up to 8 once more are. Where more than 8 volume boxes stack behind a single pixel, the lowest-priority ones are left out of that pixel. Cross-volume shadows only test the volumes that can stand between a volume and each light, and the flame emission of a volume reads its 8 nearest volumes.</p></details>
   <details><summary>Does it work with HDRP?</summary><p>An experimental HDRP subshader is included for per-volume playback. The compositor and water integration are URP-only, and URP is the supported pipeline.</p></details>
   <details><summary>Does it work with Built-in?</summary><p>No. NDVDB requires URP.</p></details>
   <details><summary>Can I edit or simulate volumes at runtime?</summary><p>No. Volumes are streamed effects authored in your DCC. You can move, scale, time-remap, light and composite them at runtime.</p></details>
