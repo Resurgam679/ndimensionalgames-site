@@ -108,25 +108,31 @@
   <section class="section" id="roadmap">
     <div class="wrap">
       <h2 class="section-title">Roadmap</h2>
-      <p class="roadmap-intro">What is coming to NDVDB after 1.0, in priority order. The first two are in testing now and will be released as soon as the Unity Asset Store approves the update; the rest are planned.</p>
+      <p class="roadmap-intro">What is coming to NDVDB after 1.0, in priority order. The first three make up NDVDB 1.1.0, now in review and released as soon as the Unity Asset Store approves it. The FX Director is in development next; the rest are planned.</p>
       <ul class="roadmap">
         <li>
-          <span class="status-tag testing">In testing</span>
+          <span class="status-tag review">In review</span>
           <h3>Converting on macOS and Linux</h3>
-          <p>Converted assets already play on Windows, Linux and macOS, but today the converter itself runs in the Unity Editor on Windows x64. The OpenVDB reader is being built natively for macOS (Apple Silicon and Intel) and Linux x86_64, so a whole team can import sequences on the machines they already use.</p>
+          <p>Converted assets already play on Windows, Linux and macOS, but in 1.0 the converter itself runs in the Unity Editor on Windows x64 only. NDVDB 1.1.0 builds the OpenVDB reader natively for macOS (Apple Silicon and Intel) and Linux x86_64, so a whole team can import sequences on the machines they already use.</p>
           <p>Every build is checked against the Windows converter: the same sequence has to produce the same data on all three.</p>
         </li>
         <li>
-          <span class="status-tag testing">In testing</span>
+          <span class="status-tag review">In review</span>
           <h3>32 volumes composited at once</h3>
-          <p>The compositor currently marches up to eight volumes jointly in view; past that, extra effects still render, but without joint overlap or cross-volume lighting. A scene-wide brick pool removes the per-shader texture limit behind that ceiling, and the update raises it to 32.</p>
+          <p>In 1.0 the compositor marches up to eight volumes jointly in view; past that, extra effects still render, but without joint overlap or cross-volume lighting. A scene-wide brick pool removes the per-shader texture limit behind that ceiling, and 1.1.0 raises it to 32.</p>
           <p>Cost follows what is on screen, not how many effects exist: each ray marches only the volumes it actually crosses, and cross-volume shadows test only the volumes that can stand between a volume and each light. The shared pool also keeps GPU memory to the bricks in use, and brings the compositor to OpenGL Core.</p>
         </li>
         <li>
-          <span class="status-tag planned">Planned</span>
-          <h3>Liquid VDB sequences</h3>
-          <p>NDVDB imports density volumes today: smoke, fire and explosions. Liquid simulations are exported differently, as an animated surface (a level set) rather than a density field, so they need their own import path and their own way to render.</p>
-          <p>This adds both: animated liquid VDBs from Houdini, Blender and other DCCs, played back in real time and lit alongside your smoke, fire and water.</p>
+          <span class="status-tag review">In review</span>
+          <h3>Surface Split by default near water</h3>
+          <p>An effect placed in a scene with KWS2, Crest or an NDVDB Water Surface now starts in Surface Split, so it never shows a hard edge against the water. A Surface Split effect takes its second compositor slot only while its box reaches the water, including KWS2 pools and lakes.</p>
+          <p>Underwater smoke also matches the water better: it takes on KWS2&rsquo;s volumetric light, and faint smoke blends into Crest&rsquo;s fog without a dark rim.</p>
+        </li>
+        <li>
+          <span class="status-tag dev">In development</span>
+          <h3>FX Director</h3>
+          <p>NDVDB plays from a native Timeline track today, but not every team sequences in Timeline. The FX Director adds NDVDB's own stack for directing a shot: cue effects, time-remap and layer them, and set their look from one place, with or without Timeline and alongside the cinematic tools you already use.</p>
+          <p>Designed to be easy to pick up from the start, for artists as much as programmers.</p>
         </li>
         <li>
           <span class="status-tag planned">Planned</span>
@@ -135,9 +141,9 @@
         </li>
         <li>
           <span class="status-tag planned">Planned</span>
-          <h3>FX Director</h3>
-          <p>NDVDB plays from a native Timeline track today, but not every team sequences in Timeline. The FX Director adds NDVDB's own stack for directing a shot: cue effects, time-remap and layer them, and set their look from one place, with or without Timeline and alongside the cinematic tools you already use.</p>
-          <p>Designed to be easy to pick up from the start, for artists as much as programmers.</p>
+          <h3>Liquid VDB sequences</h3>
+          <p>NDVDB imports density volumes today: smoke, fire and explosions. Liquid simulations are exported differently, as an animated surface (a level set) rather than a density field, so they need their own import path and their own way to render.</p>
+          <p>This adds both: animated liquid VDBs from Houdini, Blender and other DCCs, played back in real time and lit alongside your smoke, fire and water.</p>
         </li>
       </ul>
       <p class="roadmap-note">Missing something? <a href="customer-support/">Tell us what your shots need →</a></p>

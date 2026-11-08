@@ -224,7 +224,7 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
 
 <header class="topbar">
   <button class="iconbtn menubtn" id="menuBtn" aria-label="Menu">☰</button>
-  <a class="brand" href="#overview"><span class="logo"></span>NDVDB <span class="ver">docs · 1.0</span></a>
+  <a class="brand" href="#overview"><span class="logo"></span>NDVDB <span class="ver">docs · 1.1</span></a>
   <span class="spacer"></span>
   <nav class="site-links" aria-label="Site"><a href="../">Home</a><a href="https://assetstore.unity.com/packages/tools/particles-effects/ndvdb-cinematic-openvdb-importer-real-time-renderer-393076" target="_blank" rel="noopener">Asset Store</a><a href="../customer-support/">Support</a></nav>
   <label class="search"><span>⌕</span><input id="searchBox" type="search" placeholder="Search the docs…" autocomplete="off"><kbd>/</kbd></label>
@@ -271,7 +271,7 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
 <!-- ═══════════════════════════ MAIN ═══════════════════════════ -->
 <main id="main">
 <!-- added by tools/build-docs.mjs from tools/docs-notice.html -->
-<div class="callout note site-notice"><span class="ci">i</span><p><b>An NDVDB update is in testing.</b> These pages already describe it: up to 32 volumes composited at once, with each ray marching only the volumes it crosses; a shared brick pool that uses far less GPU memory; and the scene compositor on OpenGL Core. It will be released as soon as the Unity Asset Store approves it. Until then, the current version composites up to 8 volumes in view.</p></div>
+<div class="callout note site-notice"><span class="ci">i</span><p><b>NDVDB 1.1.0 is in review.</b> These pages already describe it: the converter on macOS and Linux; up to 32 volumes composited at once, with each ray marching only the volumes it crosses; a shared brick pool that uses far less GPU memory; the scene compositor on OpenGL Core; and Surface Split by default near KWS2 and Crest water. It will be released as soon as the Unity Asset Store approves it. Until then, the current version converts on Windows x64 and composites up to 8 volumes in view.</p></div>
 
 
 <section id="searchResults"></section>
@@ -523,7 +523,7 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
   <p><code>Override Emission Properties</code> exposes <code>Blackbody Tint</code> and <code>Blackbody Intensity</code> on the player, which is handy when several effects share a material but one needs a hotter fireball.</p>
 
   <h2 id="pl-water">Water compositing</h2>
-  <p><code>Water Compositing</code> chooses how this effect relates to water in the scene: <b>Depth Sorted</b> (default, sorts by depth like any transparent), <b>Show Above</b>, <b>Show Below</b>, or <b>Surface Split</b> (renders both halves). The <a href="#water">Water</a> page covers the modes in detail.</p>
+  <p><code>Water Compositing</code> chooses how this effect relates to water in the scene: <b>Depth Sorted</b> (default, sorts by depth like any transparent), <b>Show Above</b>, <b>Show Below</b>, or <b>Surface Split</b> (renders both halves). An effect placed in a scene with water starts on Surface Split instead. The <a href="#water">Water</a> page covers the modes in detail.</p>
 
   <h2 id="pl-proxy">Proxy Mode</h2>
   <p><code>Proxy Mode</code> is an editor-only layout aid: <b>Inherit</b> follows the session-wide Layout Mode level, or force <b>Full</b>, <b>Preview</b>, <b>Brick</b> or <b>Bounds Only</b> for this player. It never affects Play mode, recording or builds. See <a href="#layout-mode">Layout Mode</a>.</p>
@@ -656,7 +656,7 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
   <p>The <a href="#performance">Performance Guide</a> explains what each of these costs and which to trade first.</p>
 
   <h2 id="cp-culling">Culling and the slot pool</h2>
-  <p>The compositor has 32 slots per frame, and a Surface Split volume takes two. With <code>Frustum Culling</code> on, only volumes whose bounds intersect the camera's view compete for them, so a scene can hold as many placed effects as the shot needs as long as no more than 32 slots' worth are in view at once. The test uses a slightly wider frustum than the camera plus <code>Cull Margin</code>, so a volume is composited a step before its edge enters frame and its temporal history is primed.</p>
+  <p>The compositor has 32 slots per frame, and a Surface Split volume takes two while its box reaches the water. With <code>Frustum Culling</code> on, only volumes whose bounds intersect the camera's view compete for them, so a scene can hold as many placed effects as the shot needs as long as no more than 32 slots' worth are in view at once. The test uses a slightly wider frustum than the camera plus <code>Cull Margin</code>, so a volume is composited a step before its edge enters frame and its temporal history is primed.</p>
   <p><b>Reveals never hitch.</b> An off-screen player keeps streaming and keeps its GPU data current; it simply holds no slot and builds no light or emission cache while unseen. When the camera pans onto it, nothing has to be rebuilt. The player inspector shows "off screen" while this is the case.</p>
   <p><b>When more than 32 are in view</b>, the player's <code>Composite Priority</code> decides who keeps a slot: higher wins, ties go to volumes already composited, then to the nearer one. The rest render through the per-volume path until the shot clears, and the Console says so once. Give a shot's hero effect a higher priority than its set dressing.</p>
   <p><b>Pinning.</b> A player's <code>Always Composite</code> keeps that volume in the compositor even while it is off screen: it always holds a slot and keeps its caches warm, so a camera moving faster than the reveal margin can never catch it between the per-volume path and the compositor. Pinned volumes win slot contention outright. It costs one slot while unseen, two for Surface Split, so reserve it for the hero effects of fast shots.</p>
@@ -769,8 +769,9 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
     <tr><td><b>Depth Sorted</b> <span class="def">default</span></td><td>The effect never touches water, or sits fully on one side.</td><td>Sorts against water by depth like any transparent. Cheapest.</td></tr>
     <tr><td><b>Show Above</b></td><td>The effect is above the surface but its bounds dip below it.</td><td>Marches only the part above the water and presents it on the correct side of the water pass.</td></tr>
     <tr><td><b>Show Below</b></td><td>The effect is underwater.</td><td>Marches only the part below the water; the water's own refraction distorts it.</td></tr>
-    <tr><td><b>Surface Split</b></td><td>Breaches: launches, impacts, dives.</td><td>Marches both halves and presents each on its side. The most complete, and the most expensive: it uses two of the compositor's 32 slots.</td></tr>
+    <tr><td><b>Surface Split</b></td><td>Breaches: launches, impacts, dives.</td><td>Marches both halves and presents each on its side. The most complete, and the most expensive: it uses two of the compositor's 32 slots while its box reaches the water. Clear of the water by more than <code>Surface Split Band</code>, it presents as Show Above or Show Below and uses one.</td></tr>
   </table></div>
+  <p><b>Placed near water.</b> When you place an effect in a scene where KWS2 or Crest is detected, or that has an NDVDB Water Surface, it starts on <b>Surface Split</b> instead of Depth Sorted, so it never shows a hard edge against the water. The switch is its own Undo step and is logged in the Console. Only newly placed effects change: effects already in a scene, and a Depth Sorted you set on an instance yourself, are left alone. After Ctrl+Z the effect stays Depth Sorted, and so do its duplicates. Away from the water it costs no extra slot (see Surface Split above). Turn the switch off under <b>Tools ▸ NDVDB ▸ Water ▸ Auto Surface Split on Place</b>.</p>
 
   <h2 id="wt-detect">Water detection (no component needed)</h2>
   <p>With <code>Auto Detect Water</code> on the feature (default), NDVDB finds <b>KWS Water System 2</b> and <b>Crest Water 4</b> in the scene through reflection. There is no compile dependency and nothing to add. Detection provides:</p>
@@ -804,7 +805,8 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
   <p>Without a water-system mask (generic <b>NDVDB Water Surface</b>) the split is a plane at the mean height. <code>Wave Crest Compensation</code> lowers that plane by roughly your wave amplitude so crests do not cut the above-water smoke. It has no effect in wave-exact mode, where it is unnecessary.</p>
 
   <h2 id="wt-fog">Underwater fog</h2>
-  <p><code>Match Water Fog</code> (default on) makes underwater smoke fog exactly like everything else in the water. With KWS2 the compositor applies KWS2's absorption law to the smoke. With Crest, whose underwater pass runs after the compositor and fogs each pixel at the depth it finds, the compositor presents the smoke with a fog-matched depth: a per-pixel depth chosen so that Crest's own fog, in Crest's own colour, yields exactly smoke fogged at its distance over water fogged at its own. No fog colour is ported, so edges are continuous whatever the ocean material does, and only Crest's depth fog density is read. Because Crest reads URP's depth texture rather than the live depth buffer, that depth is mirrored into the depth texture as well.</p>
+  <p><code>Match Water Fog</code> (default on) makes underwater smoke fog exactly like everything else in the water. With KWS2 the compositor applies KWS2's absorption law, in-scatter and depth attenuation to the smoke, taking the in-scatter from KWS2's volumetric lighting when that is on. With Crest, whose underwater pass runs after the compositor and fogs each pixel at the depth it finds, the compositor presents the smoke with a fog-matched depth: a per-pixel depth chosen so that Crest's own fog, in Crest's own colour, yields exactly smoke fogged at its distance over water fogged at its own. No fog colour is ported, so edges are continuous whatever the ocean material does, and only Crest's depth fog density is read. Because Crest reads URP's depth texture rather than the live depth buffer, that depth is mirrored into the depth texture as well.</p>
+  <p>One depth can make Crest's fog exact for one colour channel only, and Crest fogs red, green and blue at different rates. Over a far background (open water, a distant seabed) faint smoke would then get too little of Crest's blue-green scatter colour and show a dark rim. <code>Crest Scatter Compensation</code> (default on) adds that missing scatter back, estimated from the ocean material's colours, the ambient light at the camera, the sun and subsurface scattering, on both the underwater and the seen-from-above paths. Caustics are Crest's own and still land on the smoke.</p>
   <p><code>Far Side Distortion Range</code> (default 0) is an advanced lever for the far-side half: beyond this distance the half is presented with depth cleared so the water's distortion covers it. Leave it at 0 unless you see a seam in the water system's own refraction at range.</p>
 
   <h2 id="wt-debug">Diagnostics</h2>
@@ -817,7 +819,7 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
 
   <h2 id="wt-checklist">Checklist for a waterline shot</h2>
   <ol class="steps">
-    <li><b>Player: Surface Split</b><p>Set <code>Water Compositing</code> to Surface Split on the effect that breaches. Effects fully on one side can stay Depth Sorted.</p></li>
+    <li><b>Player: Surface Split</b><p>Set <code>Water Compositing</code> to Surface Split on the effect that breaches; effects placed near water start there. Effects fully on one side can go back to Depth Sorted.</p></li>
     <li><b>Feature: defaults</b><p><code>Auto Detect Water</code>, <code>Wave Exact Split</code> and <code>Match Water Fog</code> on. No component needed for KWS2 or Crest.</p></li>
     <li><b>Verify routing</b><p>Tick <code>Log Water Routing</code> once and confirm the source and side mode in the Console.</p></li>
     <li><b>Look at the seam</b><p>Put the camera on the waterline. If a half is missing, switch the debug view to Pixel Side and check the classification matches the picture.</p></li>
@@ -1092,10 +1094,12 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
     <tr><td><code>Light Cache</code> / <code>Scissor To Volumes</code> / <code>Skip Overlay Cameras</code></td><td>on</td><td>Identical image, lower cost</td></tr>
     <tr><td rowspan="2">Sorting</td><td><code>Transparents Depth Occlusion</code></td><td>on</td><td></td></tr>
     <tr><td><code>Depth Occlusion Coverage</code></td><td>0.5</td><td>0.05 – 0.95</td></tr>
-    <tr><td rowspan="5">Water</td><td><code>Auto Detect Water</code></td><td>on</td><td>KWS2, Crest</td></tr>
+    <tr><td rowspan="7">Water</td><td><code>Auto Detect Water</code></td><td>on</td><td>KWS2, Crest</td></tr>
     <tr><td><code>Wave Exact Split</code></td><td>on</td><td>Needs a water-system mask</td></tr>
     <tr><td><code>Wave Crest Compensation</code></td><td>0</td><td>0 – 5, plane mode only</td></tr>
+    <tr><td><code>Surface Split Band</code></td><td>2</td><td>0 – 20 world units; about your largest wave height</td></tr>
     <tr><td><code>Match Water Fog</code></td><td>on</td><td></td></tr>
+    <tr><td><code>Crest Scatter Compensation</code></td><td>on</td><td>Crest only</td></tr>
     <tr><td><code>Far Side Distortion Range</code></td><td>0</td><td>0 – 200, advanced</td></tr>
     <tr><td rowspan="6">Flame emission</td><td><code>Flame Emission</code></td><td>off</td><td>Cone-traced fire light on smoke</td></tr>
     <tr><td><code>Flame Emission Strength</code></td><td>1</td><td>0 – 8</td></tr>
@@ -1127,7 +1131,7 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
     <tr><td rowspan="3">Placement</td><td><code>Use VDB Origin</code></td><td>off</td></tr>
     <tr><td><code>Fit Natural World Size</code></td><td>off</td></tr>
     <tr><td><code>Auto Depth Sort</code></td><td>on</td></tr>
-    <tr><td rowspan="4">Water</td><td><code>Water Compositing</code></td><td>Depth Sorted</td></tr>
+    <tr><td rowspan="4">Water</td><td><code>Water Compositing</code></td><td>Depth Sorted (Surface Split when placed near water)</td></tr>
     <tr><td><code>Underwater Material</code></td><td>optional</td></tr>
     <tr><td><code>Composite Priority</code></td><td>0</td></tr>
     <tr><td><code>Always Composite</code></td><td>off</td></tr>
@@ -1208,7 +1212,7 @@ footer.site { margin-top: 40px; padding: 20px 0 0; border-top: 1px solid var(--l
   <div class="eyebrow">Reference</div>
   <h1>FAQ &amp; Limits</h1>
 
-  <details open><summary>How many volumes can be on screen?</summary><p>32 compositor slots per frame, in view at once; a volume in <b>Surface Split</b> water mode uses two. Because off-screen volumes are culled from the slots, a scene can hold any number of placed effects. When more than 32 slots' worth are in view, <code>Composite Priority</code> on the player decides who keeps a slot and the rest render through the per-volume path, with a one-time Console warning.</p><p>Each pixel marches only the volumes its ray passes through: up to 4 while at most 4 volumes are gathered, up to 8 once more are. Where more than 8 volume boxes stack behind a single pixel, the lowest-priority ones are left out of that pixel. Cross-volume shadows only test the volumes that can stand between a volume and each light, and the flame emission of a volume reads its 8 nearest volumes.</p></details>
+  <details open><summary>How many volumes can be on screen?</summary><p>32 compositor slots per frame, in view at once; a volume in <b>Surface Split</b> water mode uses two while its box reaches the water. Because off-screen volumes are culled from the slots, a scene can hold any number of placed effects. When more than 32 slots' worth are in view, <code>Composite Priority</code> on the player decides who keeps a slot and the rest render through the per-volume path, with a one-time Console warning.</p><p>Each pixel marches only the volumes its ray passes through: up to 4 while at most 4 volumes are gathered, up to 8 once more are. Where more than 8 volume boxes stack behind a single pixel, that pixel keeps the 8 nearest along its view ray and leaves out the farthest, which sit behind the rest. Cross-volume shadows only test the volumes that can stand between a volume and each light, and the flame emission of a volume reads its 8 nearest volumes.</p></details>
   <details><summary>Does it work with HDRP?</summary><p>An experimental HDRP subshader is included for per-volume playback. The compositor and water integration are URP-only, and URP is the supported pipeline.</p></details>
   <details><summary>Does it work with Built-in?</summary><p>No. NDVDB requires URP.</p></details>
   <details><summary>Can I edit or simulate volumes at runtime?</summary><p>No. Volumes are streamed effects authored in your DCC. You can move, scale, time-remap, light and composite them at runtime.</p></details>
